@@ -1,0 +1,5 @@
+#!/bin/sh
+
+qvm-ls --raw-data name type | grep Tpl | sed 's|Tpl||g' | tr -d "\|\[\]\=\>" | sort
+
+exit 0

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+qvm-ls --raw-data name type netvm | grep "Tpl" | grep -e "gateway-updates" -e "update-cache" | sed -e 's|\[| |g' -e 's|\]| |g' | cut -d" " -f2 | sort
+
+exit 0
