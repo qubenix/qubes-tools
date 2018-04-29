@@ -56,12 +56,12 @@ printf "\nStarting update VMs and waiting for Tor to connect...\n\n"
 qvm-start -q --skip-if-running update-cache
 tor_count="0"
 tor_restart_count="0"
-while [[ $(qvm-run -a -u user -p gateway-updates 'grep "$(date -u +%b\ %d)" /var/log/tor/log' | grep -c -e "Bootstrapped 100%") -lt "1" ]]; do
+while [[ $(qvm-run -a -u user -p gateway-update 'grep "$(date -u +%b\ %d)" /var/log/tor/log' | grep -c -e "Bootstrapped 100%") -lt "1" ]]; do
   sleep 1
   tor_count=$((tor_count+1))
   if [[ "$tor_count" -ge "180" ]]; then
-    printf "\n[!][!] RESTARTING TOR IN SYS-UPDATE. ATTEMPT: $tor_restart_count / 10 [!][!]\n\n"
-    qvm-run -a -u root -p gateway-updates 'systemctl restart tor@default.service'
+    printf "\n[!][!] RESTARTING TOR IN GATEWAY-UPDATE. ATTEMPT: $tor_restart_count / 10 [!][!]\n\n"
+    qvm-run -a -u root -p gateway-update 'systemctl restart tor@default.service'
     tor_count="0"
     tor_restart_count=$((tor_restart_count+1))
       if [[ "$tor_restart_count" -ge "10" ]]; then
@@ -72,7 +72,7 @@ while [[ $(qvm-run -a -u user -p gateway-updates 'grep "$(date -u +%b\ %d)" /var
 done
 
 # Upgrade Debian based vms.
-for vm in $(qvm-ls --raw-data name type netvm | grep "Tpl" | grep -e "update-cache" -e "gateway-updates" | sed -e 's|\[| |g' -e 's|\]| |g' | cut -d" " -f2 | grep -e "w13" -e "d9" -e "w14" | sort); do
+for vm in $(qvm-ls --raw-data name type netvm | grep "Tpl" | grep -e "update-cache" -e "gateway-update" | sed -e 's|\[| |g' -e 's|\]| |g' | cut -d" " -f2 | grep -e "w13" -e "d9" -e "w14" | sort); do
   printf "\n[+] Starting upgrade for VM $vm at $(date +%x-%T).\n\n" | tee -a "$logfile"
   # Start vm, wait for it to start.
   qvm-start -q --skip-if-running "$vm"
@@ -126,6 +126,7 @@ for vm in $(qvm-ls --raw-data name type netvm | grep "Tpl" | grep -e "update-cac
     done
   fi
   # Shutdown vm. Give 20 sec, then kill.
+  #qvm-shutdown -q --wait --wait-time=15 "$vm"
   qvm-shutdown -q "$vm"
   shutdown_count="0"
   # False positives below. Example: a running template VM named "$vm"-something.
@@ -141,7 +142,7 @@ for vm in $(qvm-ls --raw-data name type netvm | grep "Tpl" | grep -e "update-cac
 done
 
 # Upgrade Fedora based vms.
-for vm in $(qvm-ls --raw-data name type netvm | grep "Tpl" | grep -e "gateway-updates" -e "update-cache" | sed -e 's|\[| |g' -e 's|\]| |g' | cut -d" " -f2 | grep -e "f24" -e "f25" -e "f26"); do
+for vm in $(qvm-ls --raw-data name type netvm | grep "Tpl" | grep -e "gateway-update" -e "update-cache" | sed -e 's|\[| |g' -e 's|\]| |g' | cut -d" " -f2 | grep -e "f24" -e "f25" -e "f26"); do
   printf "\n[+] Starting upgrade for VM $vm at $(date +%x-%T).\n\n" | tee -a "$logfile"
   qvm-start -q --skip-if-running "$vm"
   # False positives below. Example: a VM named "$vm"-something.
@@ -161,6 +162,7 @@ for vm in $(qvm-ls --raw-data name type netvm | grep "Tpl" | grep -e "gateway-up
     fi
   done
   # Shutdown vm.
+  #qvm-shutdown -q --wait --wait-time=15 "$vm"
   qvm-shutdown -q "$vm"
   shutdown_count="0"
   while [[ $(qvm-ls --raw-data name state type | grep Tpl | grep Running | grep -c "$vm") != 0 ]]; do
@@ -192,7 +194,7 @@ printf "\n[-] Finished upgrade for dom0 at $(date +%x-%T).\n\n" | tee -a "$logfi
 # Shutdown update vms.
 printf "\nShutting down update VMs...\n\n"
 qvm-shutdown -q --wait --wait-time=15 update-cache
-qvm-shutdown -q --wait --wait-time=15 gateway-updates
+qvm-shutdown -q --wait --wait-time=15 gateway-update
 
 # Trimming, if enabled.
 if [[ "$trim" = "1" ]]; then
@@ -203,7 +205,7 @@ if [[ "$trim" = "1" ]]; then
   sleep 10
   # Trim templates.
   printf "\n[+] Starting trim on templates at $(date +%x-%T).\n\n" | tee -a "$logfile"
-  for vm in $(qvm-ls --raw-data name type netvm | grep "Tpl" | grep "update-cache" | sed -e 's|\[| |g' -e 's|\]| |g' | cut -d" " -f2); do
+  for vm in $(qvm-ls --raw-data name type netvm | grep "Tpl" | grep -e "gateway-update" -e "update-cache" | sed -e 's|\[| |g' -e 's|\]| |g' | cut -d" " -f2 | sort); do
     qvm-trim-template "$vm" | tee -a "$logfile"
   done
   printf "\n[-] Finished trimming templates at $(date +%x-%T).\n\n" | tee -a "$logfile"
