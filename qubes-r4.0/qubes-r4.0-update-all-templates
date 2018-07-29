@@ -2,6 +2,10 @@
 
 while [[ "$#" -gt "0" ]]; do
   case "$1" in
+    --autoclean|-ac)
+    autoclean="1"
+    shift
+    ;;
     --autoremove|-ar)
     autoremove="1"
     shift
@@ -9,10 +13,6 @@ while [[ "$#" -gt "0" ]]; do
     --help|-h)
     printf "\nUsage: "$0" [--autoclean|-ac] [--autoremove|-ar] [--help|-h]"
     exit 0
-    ;;
-    --autoclean|-ac)
-    autoclean="1"
-    shift
     ;;
     *)
     break
