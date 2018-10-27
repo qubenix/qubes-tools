@@ -65,17 +65,21 @@ fi
 
 # Start update VM, wait for Tor.
 printf "\nStarting update VM and waiting for Tor to connect...\n\n"
-if [[ $(qvm-ls --raw-data -O state "$updatevm") -eq "Running" ]]; then
-  updatevm_was_running=1
+if [[ $(qvm-ls --raw-data -O state "$updatevm" | grep -c "Running") -ne "1" ]]; then
+  updatevm_was_running="0"
 else
-  updatevm_was_running=0
+  updatevm_was_running="1"
 fi
-qvm-start -q "$updatevm"
+qvm-start -q --skip-if-running "$updatevm"
 tor_count="0"
 tor_restart_count="0"
 while [[ $(qvm-run -u user -p "$updatevm" 'grep "$(date -u +%b\ %d)" /var/log/tor/log' | grep -c -e "Bootstrapped 100%") -lt "1" ]]; do
   sleep 1
   tor_count=$((tor_count+1))
+  if [[ "$updatevm_was_running" -eq "1" && "$tor_count" -eq "30" ]]; then
+    qvm-run -u root -p "$updatevm" 'systemctl restart tor@default.service'
+    tor_count="0"
+  fi
   if [[ "$tor_count" -ge "180" ]]; then
     tor_restart_count=$((tor_restart_count+1))
     printf "\n[!][!] RESTARTING TOR IN GATEWAY-UPDATE. ATTEMPT: $tor_restart_count / 10 [!][!]\n\n"
@@ -99,13 +103,13 @@ for vm in $(qvm-ls --raw-data --fields=name,class,netvm | grep "TemplateVM" | gr
   # Start apt-get update. Give 10 retries.
   aborted_update="0"
   update_count="0"
-  qvm-run -q --nogui -p "$vm" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; sudo apt-get update; printf "Exit code: $?\n"' | tee -a "$logfile"
+  qvm-run -q --nogui -p "$vm" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; sudo timeout 10m sudo apt-get update; printf "Exit code: $?\n"' | tee -a "$logfile"
   while [[ $(tail -1 "$logfile" | sed 's|Exit\ code\:\ ||') -ne "0" ]] ; do
 # || $(grep -A 20 "Starting upgrade for VM "$vm"" "$logfile" | grep -c "Err:") -gt "0" ]]; do
     update_count=$((update_count+1))
     printf "\n[!][!] UPDATE FAILED FOR: $vm. RETRY ATTEMPT $update_count / 10. [!][!]\n\n" | tee -a "$logfile"
     sleep 10
-    qvm-run -q --nogui -p "$vm" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; sudo apt-get update; printf "Exit code: $?\n"' | tee -a "$logfile"
+    qvm-run -q --nogui -p "$vm" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; sudo timeout 10m sudo apt-get update; printf "Exit code: $?\n"' | tee -a "$logfile"
     if [[ "$update_count" -ge "10" ]]; then
       printf "\n[!][!] UPDATE FOR VM: $vm WAS NOT SUCCESSFUL AFTER 10 RETRY ATTEMPTS. ABORTING. [!][!]\n\n" | tee -a "$logfile"
       aborted_update="1"
