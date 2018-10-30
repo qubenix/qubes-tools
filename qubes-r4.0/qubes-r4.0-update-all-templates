@@ -213,9 +213,9 @@ done
 printf "\n[+] Starting upgrade for dom0 at $(date +%x-%T).\n\n" | tee -a "$logfile"
 dom0update_count="0"
 set -o pipefail
-sudo qubes-dom0-update -v -y --enablerepo=qubes-dom0-current-testing | tee -a "$logfile"
+sudo qubes-dom0-update --clean --enablerepo=qubes-dom0-current-testing -v -y | tee -a "$logfile"
 while [[ "$?" -ne "0" && $(tail -5 "$logfile" | grep -c "Nothing to download") -lt "1" ]]; do
-  sudo qubes-dom0-update --clean -v -y --enablerepo=qubes-dom0-current-testing | tee -a "$logfile"
+  sudo qubes-dom0-update --enablerepo=qubes-dom0-current-testing -v -y | tee -a "$logfile"
   dom0update_count=$((dom0update_count+1))
   if [[ "$dom0update_count" -ge "10" ]]; then
     printf "\n[!][!] UPGRADE FOR dom0 WAS NOT SUCCESSFUL AFTER 10 ATTEMPTS. ABORTING. [!][!]\n\n" | tee -a "$logfile"
