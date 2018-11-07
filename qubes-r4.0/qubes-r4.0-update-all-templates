@@ -185,12 +185,12 @@ for vm in $(qvm-ls --raw-data --fields=name,class,netvm | grep "TemplateVM" | gr
     sleep 1
   done
   upgrade_count="0"
-  qvm-run -q --nogui -u root -p "$vm" 'export TERM="vt100"; dnf upgrade -v -y --refresh --enablerepo=qubes-vm-r4.0-current-testing --best; printf "Exit code: $?\n"' | tee -a "$logfile"
+  qvm-run -q --nogui -u root -p "$vm" 'export TERM="vt100"; dnf upgrade --best --enablerepo=qubes-vm-r4.0-current-testing --refresh -v -y; printf "Exit code: $?\n"' | tee -a "$logfile"
   while [[ $(tail -1 "$logfile" | sed 's|Exit\ code\:\ ||') != "0" && $(tail -1 "$logfile" | sed 's|Exit\ code\:\ ||') -ne "Complete!" ]]; do
     upgrade_count=$((upgrade_count+1))
     printf "\n[!][!] UPGRADE FAILED FOR VM: $vm. RETRY ATTEMPT $upgrade_count / 10. [!][!]\n\n" | tee -a "$logfile"
     sleep 10
-    qvm-run -q --nogui -u root -p "$vm" 'export TERM="vt100"; dnf upgrade -v -y --refresh --enablerepo=qubes-vm-r4.0-current-testing --best' | tee -a "$logfile"
+    qvm-run -q --nogui -u root -p "$vm" 'export TERM="vt100"; dnf upgrade --best --enablerepo=qubes-vm-r4.0-current-testing  --refresh -v -y' | tee -a "$logfile"
     if [[ "$upgrade_count" -ge "10" ]]; then
       printf "\n[!][!] UPGRADE FOR VM: $vm WAS NOT SUCCESSFUL AFTER 10 ATTEMPTS. ABORTING. [!][!]\n\n" | tee -a "$logfile"
       break
