@@ -100,32 +100,31 @@ for vm in $(qvm-ls --raw-data --fields=name,class,netvm | grep "TemplateVM" | gr
   while [[ $(qvm-ls --raw-data --fields=name,state,class | grep "TemplateVM" | grep "$vm" | grep -c "Running") -ne "1" ]]; do
     sleep 1
   done
-  # Start apt-get update. Give 10 retries.
+  # Start apt update. Give 10 retries.
   aborted_update="0"
   update_count="0"
-  qvm-run -q --nogui -p "$vm" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; sudo timeout 10m sudo apt-get update; printf "Exit code: $?\n"' | tee -a "$logfile"
+  qvm-run -q --nogui -p "$vm" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; sudo timeout 10m sudo apt update; printf "Exit code: $?\n"' | tee -a "$logfile"
   while [[ $(tail -1 "$logfile" | sed 's|Exit\ code\:\ ||') -ne "0" ]] ; do
-# || $(grep -A 20 "Starting upgrade for VM "$vm"" "$logfile" | grep -c "Err:") -gt "0" ]]; do
     update_count=$((update_count+1))
     printf "\n[!][!] UPDATE FAILED FOR: $vm. RETRY ATTEMPT $update_count / 10. [!][!]\n\n" | tee -a "$logfile"
     sleep 10
-    qvm-run -q --nogui -p "$vm" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; sudo timeout 10m sudo apt-get update; printf "Exit code: $?\n"' | tee -a "$logfile"
+    qvm-run -q --nogui -p "$vm" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; sudo timeout 10m sudo apt update; printf "Exit code: $?\n"' | tee -a "$logfile"
     if [[ "$update_count" -ge "10" ]]; then
       printf "\n[!][!] UPDATE FOR VM: $vm WAS NOT SUCCESSFUL AFTER 10 RETRY ATTEMPTS. ABORTING. [!][!]\n\n" | tee -a "$logfile"
       aborted_update="1"
       break
     fi
   done
-  # Start apt-get dist-upgrade if update was successful. Give 10 retries.
+  # Start apt dist-upgrade if update was successful. Give 10 retries.
   if [[ "$aborted_update" -eq "0" ]]; then
     aborted_upgrade="0"
     upgrade_count="0"
-    qvm-run -q --nogui -p "$vm" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; sudo apt-get dist-upgrade -V -y -q -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"; printf "Exit code: $?\n"' | tee -a "$logfile"
+    qvm-run -q --nogui -p "$vm" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; sudo apt dist-upgrade -V -y -q -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"; printf "Exit code: $?\n"' | tee -a "$logfile"
     while [[ $(tail -1 $logfile | sed 's|Exit\ code\:\ ||') -ne "0" ]]; do
       upgrade_count=$((upgrade_count+1))
       printf "\n[!][!] UPGRADE FAILED FOR VM: $vm. RETRY ATTEMPT $upgrade_count / 10. [!][!]\n\n" | tee -a "$logfile"
       sleep 10
-      qvm-run -q --nogui -p "$vm" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; sudo apt-get dist-upgrade -V -y -q -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"; printf "Exit code: $?\n"' | tee -a "$logfile"
+      qvm-run -q --nogui -p "$vm" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; sudo apt dist-upgrade -V -y -q -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"; printf "Exit code: $?\n"' | tee -a "$logfile"
       if [[ "$upgrade_count" -ge "10" ]]; then
         printf "\n[!][!] UPGRADE FOR VM: $vm WAS NOT SUCCESSFUL AFTER 10 RETRY ATTEMPTS. ABORTING. [!][!]\n\n" | tee -a "$logfile"
         aborted_upgrade="1"
@@ -136,11 +135,11 @@ for vm in $(qvm-ls --raw-data --fields=name,class,netvm | grep "TemplateVM" | gr
   # Start autoremove. Should only need one try, but we give 10 retries.
   if [[ "$aborted_update" -eq "0" && "$aborted_upgrade" -eq "0" && "$autoremove" -eq "1" ]]; then
     autoremove_count="0"
-    qvm-run -q --nogui -u root -p "$vm" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; apt-get autoremove -y; printf "Exit code: $?\n"' | tee -a "$logfile"
+    qvm-run -q --nogui -u root -p "$vm" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; apt autoremove -y; printf "Exit code: $?\n"' | tee -a "$logfile"
     while [[ $(tail -1 "$logfile" | sed 's|Exit\ code\:\ ||') -ne "0" ]]; do
       autoremove_count=$((autoremove_count+1))
       sleep 10
-      qvm-run -q --nogui -u root -p "$vm" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; apt-get autoremove -y; printf "Exit code: $?\n"' | tee -a "$logfile"
+      qvm-run -q --nogui -u root -p "$vm" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; apt autoremove -y; printf "Exit code: $?\n"' | tee -a "$logfile"
       if [[ "$autoremove_count" -ge "10" ]]; then
         printf "\n[!][!] AUTOREMOVE FOR VM: $vm WAS NOT SUCCESSFUL AFTER RETRY 10 ATTEMPTS. ABORTING. [!][!]\n\n" | tee -a "$logfile"
         break
@@ -150,11 +149,11 @@ for vm in $(qvm-ls --raw-data --fields=name,class,netvm | grep "TemplateVM" | gr
   # Start autoclean. Should only need one try, but we give 10 retries.
   if [[ "$aborted_update" -eq "0" && "$aborted_upgrade" -eq "0" && "$autoclean" -eq "1" ]]; then
     autoclean_count="0"
-    qvm-run -q --nogui -u root -p "$vm" 'export DEBIAN_FRONTEND=noninteractive; export TERM="vt100"; apt-get autoclean -y; printf "Exit code: $?\n"' | tee -a "$logfile"
+    qvm-run -q --nogui -u root -p "$vm" 'export DEBIAN_FRONTEND=noninteractive; export TERM="vt100"; apt autoclean -y; printf "Exit code: $?\n"' | tee -a "$logfile"
     while [[ $(tail -1 "$logfile" | sed 's|Exit\ code\:\ ||') != "0" ]]; do
       autoclean_count=$((autoremove_count+1))
       sleep 10
-      qvm-run -q --nogui -u root -p "$vm" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; apt-get autoclean -y; printf "Exit code: $?\n"' | tee -a "$logfile"
+      qvm-run -q --nogui -u root -p "$vm" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; apt autoclean -y; printf "Exit code: $?\n"' | tee -a "$logfile"
       if [[ "$autoclean_count" -ge "10" ]]; then
         printf "\n[!][!] AUTOCLEAN FOR VM: $vm WAS NOT SUCCESSFUL AFTER RETRY 10 ATTEMPTS. ABORTING. [!][!]\n\n" | tee -a "$logfile"
         break
@@ -181,16 +180,16 @@ for vm in $(qvm-ls --raw-data --fields=name,class,netvm | grep "TemplateVM" | gr
   printf "\n[+] Starting upgrade for VM $vm at $(date +%x-%T).\n\n" | tee -a "$logfile"
   qvm-start -q --skip-if-running "$vm"
   # Start TemplateVM, wait for it.
-  while [[ $(qvm-ls --raw-data --fields=name,state,class | grep "TemplateVM" | grep "$vm" | grep -c "Running") != "1" ]]; do
+  while [[ $(qvm-ls --raw-data --fields=name,state,class | grep "TemplateVM" | grep "$vm" | grep -c "Running") -ne "1" ]]; do
     sleep 1
   done
   upgrade_count="0"
-  qvm-run -q --nogui -u root -p "$vm" 'export TERM="vt100"; dnf upgrade --best --enablerepo=qubes-vm-r4.0-current-testing --refresh -v -y; printf "Exit code: $?\n"' | tee -a "$logfile"
-  while [[ $(tail -1 "$logfile" | sed 's|Exit\ code\:\ ||') != "0" && $(tail -1 "$logfile" | sed 's|Exit\ code\:\ ||') -ne "Complete!" ]]; do
+  qvm-run -q --nogui -u root -p "$vm" 'export TERM="vt100"; dnf upgrade --allowerasing --best --enablerepo=qubes-vm-r4.0-current-testing --refresh -v -y; printf "Exit code: $?\n"' | tee -a "$logfile"
+  while [[ $(tail -1 "$logfile" | sed 's|Exit\ code\:\ ||') != "0" && $(tail -1 "$logfile" | sed 's|Exit\ code\:\ ||') != "Complete!" ]]; do
     upgrade_count=$((upgrade_count+1))
     printf "\n[!][!] UPGRADE FAILED FOR VM: $vm. RETRY ATTEMPT $upgrade_count / 10. [!][!]\n\n" | tee -a "$logfile"
     sleep 10
-    qvm-run -q --nogui -u root -p "$vm" 'export TERM="vt100"; dnf upgrade --best --enablerepo=qubes-vm-r4.0-current-testing  --refresh -v -y' | tee -a "$logfile"
+    qvm-run -q --nogui -u root -p "$vm" 'export TERM="vt100"; dnf upgrade --clean --enablerepo=qubes-vm-r4.0-current-testing  --refresh -v -y' | tee -a "$logfile"
     if [[ "$upgrade_count" -ge "10" ]]; then
       printf "\n[!][!] UPGRADE FOR VM: $vm WAS NOT SUCCESSFUL AFTER 10 ATTEMPTS. ABORTING. [!][!]\n\n" | tee -a "$logfile"
       break
