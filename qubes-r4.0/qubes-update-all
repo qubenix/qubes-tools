@@ -18,8 +18,7 @@ Options:
 
 --autoclean, -ac  = autoclean
 --autoremove, -ar = autoremove
---help, -h        = help menu
-"
+--help, -h        = help menu"
     exit 0
     ;;
     *)
@@ -34,8 +33,8 @@ updatevm="gateway-update"
 
 ## Log output dir and file.
 ## If left empty a dir and file will be created in current dir.
-logdir="/home/user/update-all-templates-log/"
-logfile="/home/user/update-all-templates-log/update-all-templates.log"
+logdir="${HOME}/update-all-templates-log/"
+logfile="${HOME}/update-all-templates-log/update-all-templates.log"
 
 ## Set variables if empty.
 if [[ -z "${updatevm}" ]]; then
@@ -120,7 +119,7 @@ for vm in $(qvm-ls --fields name,netvm --raw-data --tags debian | grep "gateway-
   qvm-run -q --nogui -p "${vm}" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; sudo timeout 10m sudo apt update; printf "Exit code: $?\n"' | tee -a "${logfile}"
   while [[ $(tail -1 "${logfile}" | sed 's|Exit\ code\:\ ||') -ne "0" ]] ; do
     update_count=$((update_count+1))
-    printf "\n[!][!] UPDATE FAILED FOR: "${vm}". RETRY ATTEMPT $update_count / 10. [!][!]\n\n" | tee -a "${logfile}"
+    printf "\n[!][!] UPDATE FAILED FOR: "${vm}". RETRY ATTEMPT "${update_count}" / 10. [!][!]\n\n" | tee -a "${logfile}"
     sleep 10
     qvm-run -q --nogui -p "${vm}" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; sudo timeout 10m sudo apt update; printf "Exit code: $?\n"' | tee -a "${logfile}"
     if [[ "$update_count" -ge "10" ]]; then
