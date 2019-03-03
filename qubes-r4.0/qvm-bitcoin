@@ -1,0 +1,169 @@
+#!/bin/bash
+
+function deploy_bitcoind ()
+{
+## Check for existence of 'whonix-ws-14-bitcoin'.
+if [[ $(qvm-ls whonix-ws-14-bitcoin 2>/dev/null) ]]; then
+  printf "The VM, whonix-ws-14-bitcoin, already exists. Exiting.\n"
+  exit 1
+fi
+
+## Get name of default Whonix workstation.
+default_whonix_ws="whonix-ws-14"
+while [[ ! $(qvm-ls "${default_whonix_ws}" 2>/dev/null) ]]; do
+  printf "The default Whonix workstation, "${default_whonix_ws}", does not exist.\n"
+  read -p "What is the name of your default Whonix workstation? " default_whonix_ws
+done
+
+## Clone TemplateVM: 'whonix-ws-14-bitcoin' from the default Whonix workstation TemplateVM.
+printf "- Cloning "${default_whonix_ws}"...\n"
+qvm-clone whonix-ws-14 whonix-ws-14-bitcoin
+
+## Make sure the TemplateVM has networking.
+if [[ $(qvm-ls -O netvm --raw-data whonix-ws-14-bitcoin) = "-" ]]; then
+  printf "The TemplateVM, whonix-ws-14-bitcoin, has no NetVM.\n"
+  read -p "What is the name of your Whonix update VM? " template_update_vm
+  while [[ ! $(qvm-ls "${template_update_vm}" 2>/dev/null) ]]; do
+    printf "The Whonix update VM, "${template_update_vm}", does not exist.\n"
+    read -p "What is the name of your Whonix update VM? " template_update_vm
+  done
+fi
+
+## Update and install dependencies to 'whonix-ws-14-bitcoin'.
+printf "- Updating and installing dependencies to whonix-ws-14-bitcoin...\n"
+qvm-run --no-gui -p -q -u root whonix-ws-14-bitcoin 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; apt update && apt install -y automake autotools-dev build-essential git libboost-chrono-dev libboost-filesystem-dev libboost-system-dev libboost-test-dev libboost-thread-dev libevent-dev libprotobuf-dev libqrencode-dev libssl-dev libtool libzmq3-dev pkg-config protobuf-compiler qttools5-dev qttools5-dev-tools'
+
+printf "- Setting up TemplateVM: whonix-ws-14-bitcoin...\n"
+
+## Create system user on 'whonix-ws-14-bitcoin'.
+qvm-run --no-gui -q -u root whonix-ws-14-bitcoin 'adduser --system bitcoin'
+
+## Set up `systemd` `bitcoind` service on 'whonix-ws-14-bitcoin'.
+qvm-run --no-gui -q -u root whonix-ws-14-bitcoin "printf '%s\n' '[Unit]
+Description=Bitcoin daemon
+ConditionPathExists=/var/run/qubes-service/bitcoind
+After=qubes-sysinit.service
+
+[Service]
+ExecStart=/home/bitcoin/bin/bitcoind -daemon -pid=/run/bitcoind/bitcoind.pid
+ExecStop=/home/bitcoin/bin/bitcoin-cli stop
+
+RuntimeDirectory=bitcoind
+User=bitcoin
+Type=forking
+PIDFile=/run/bitcoind/bitcoind.pid
+Restart=on-failure
+
+PrivateTmp=true
+ProtectSystem=full
+NoNewPrivileges=true
+PrivateDevices=true
+MemoryDenyWriteExecute=true
+
+[Install]
+WantedBy=multi-user.target' > /lib/systemd/system/bitcoind.service"
+qvm-run --no-gui -q -u root whonix-ws-14-bitcoin 'chmod 0644 /lib/systemd/system/bitcoind.service'
+qvm-run --no-gui -q -u root whonix-ws-14-bitcoin 'systemctl enable bitcoind.service'
+qvm-service --enable bitcoind bitcoind
+
+## Shutdown 'whonix-ws-14-bitcoin'.
+qvm-shutdown whonix-ws-14-bitcoin
+
+printf "- Creating gateway VM: sys-bitcoin...\n"
+
+## Check for existence of 'sys-bitcoin'.
+if [[ $(qvm-ls sys-bitcoin 2>/dev/null) ]]; then
+  printf "The gateway VM, sys-bitcoin, already exists. Exiting.\n"
+  exit 1
+fi
+
+## Get names of NetVM and TemplateVM of the gateway.
+gateway_netvm="sys-firewall"
+while [[ ! $(qvm-ls "${gateway_netvm}" 2>/dev/null) ]]; do
+  printf "The NetVM, "${gateway_netvm}", does not exist.\n"
+  read -p "What is the name of the NetVM that your gateway should use? " gateway_netvm
+done
+gateway_template="whonix-gw-14"
+while [[ ! $(qvm-ls "${gateway_template}" 2>/dev/null) ]]; do
+  printf "The TemplateVM, "${gateway_template}", does not exist.\n"
+  read -p "What is the name of the TemplateVM that your gateway should use? " gateway_template
+done
+
+## Create 'sys-bitcoin' gateway.
+qvm-create --label purple --prop maxmem='400' --prop netvm="${netvm}" --prop provides_network='True' --prop vcpus='1' --template "${gateway_template}" sys-bitcoin
+
+printf "- Setting up gateway VM: sys-bitcoin...\n"
+
+## Set up `onion-grater` on 'sys-bitcoin'.
+qvm-run --no-gui -q -u root sys-bitcoin 'install -D -t /usr/local/etc/onion-grater-merger.d/ /usr/share/onion-grater-merger/examples/40_bitcoind.yml'
+qvm-run --no-gui -q -u root sys-bitcoin 'systemctl restart onion-grater.service'
+
+printf "- Creating AppVM: bitcoind...\n"
+
+## Create 'bitcoind' AppVM.
+qvm-create --label red --prop netvm='sys-bitcoin' --template whonix-ws-14-bitcoin bitcoind
+
+## Increase private volume size of 'bitcoind' VM.
+qvm-volume resize bitcoind:private 250G
+
+printf "- Setting up AppVM: bitcoind...\n"
+
+## Start 'bitcoind' VM.
+qvm-start bitcoind
+
+## Stop `bitcoind` service.
+qvm-run --no-gui -q -u root 'systemctl stop bitcoind'
+
+## Clone the Bitcoin repository in 'bitcoind' VM.
+printf "- Getting the bitcoin source code...\n"
+qvm-run --no-gui -p -u bitcoin bitcoind 'git clone --branch 0.17 --progress https://github.com/bitcoin/bitcoin ~/bitcoin'
+
+## Get signing keys in 'bitcoind' VM. Verify fingerprints: https://github.com/bitcoin/bitcoin/blob/0.17/contrib/verify-commits/trusted-keys.
+printf "- Getting the bitcoin signing keys...\n"
+qvm-run --no-gui -p -u bitcoin bitcoind 'gpg --recv-keys 71A3B16735405025D447E8F274810B012346C9A6 133EAC179436F14A5CF1B794860FEB804E669320 32EE5C4C3FA15CCADB46ABE529D4BCB6416F53EC B8B3F1C0E58C15DB6A81D30C3648A882F4316B9B'
+
+printf "- Verifying the bitcoin source code...\n"
+
+## Verify downloaded source code.
+verify_bitcoin=$(qvm-run --no-gui -p -q -u bitcoin bitcoind 'cd ~/bitcoin; git verify-commit HEAD 2>&1 | grep -c BAD')
+while [[ "${verify_bitcoin}" -ne "0" ]]; do
+  printf "\nBitcoin source code failed validation!\nRemoving, downloading, and verifying again.\n"
+  qvm-run --no-gui -q -u bitcoin bitcoind 'rm -rf ~/bitcoin'
+  qvm-run --no-gui -p -q -u bitcoin bitcoind 'git clone --branch 0.17 --progress https://github.com/bitcoin/bitcoin ~/bitcoin'
+  verify_bitcoin=$(qvm-run --no-gui -p -q -u bitcoin bitcoind 'cd ~/bitcoin; git verify-commit HEAD 2>&1 | grep -c BAD')
+done
+
+## Build Berkeley DB in 'bitcoind' VM.
+printf "- Building Berkeley database...\n"
+qvm-run --no-gui -p -u bitcoin bitcoind 'cd ~/bitcoin; ~/bitcoin/contrib/install_db4.sh ~/bitcoin'
+
+## Prepare to build Bitcoin Core in 'bitcoind' VM.
+printf "- Configuring bitcoind source code for build...\n"
+qvm-run --no-gui -p -u bitcoin bitcoind 'cd ~/bitcoin; export BDB_PREFIX="/home/bitcoin/bitcoin/db4"; ~/bitcoin/autogen.sh && ~/bitcoin/configure BDB_LIBS="-L${BDB_PREFIX}/lib -ldb_cxx-4.8" BDB_CFLAGS="-I${BDB_PREFIX}/include" --bindir=/home/bitcoin/bin --prefix=/home/bitcoin/bin'
+
+## Build and install Bitcoin Core in 'bitcoind' VM.
+printf "- Building and installing bitcoind...\n"
+qvm-run --no-gui -p -u bitcoin bitcoind 'cd ~/bitcoin; make check && make install'
+
+## Configure Bitcoin Core in 'bitcoind' VM.
+printf "- Configuring bitcoind...\n"
+qvm-run --no-gui -q -u bitcoin bitcoind 'mkdir -m 0700 ~/.bitcoin'
+gateway_ip=$(qvm-prefs sys-bitcoin ip)
+qvm-run --no-gui -q -u bitcoin bitcoind "printf '%s\n' 'listen=1
+onion="${gateway_ip}":9111
+onlynet=onion
+proxy="${gateway_ip}":9111
+txindex=1' > ~/.bitcoin/bitcoin.conf" 
+qvm-run --no-gui -q -u bitcoin bitcoind 'chmod 0600 ~/.bitcoin/bitcoin.conf'
+
+## Configure firewall for `bitcoind` onion service in 'bitcoind' VM.
+qvm-run --no-gui -q -u root bitcoind 'mkdir -m 0755 /rw/usrlocal/etc/qubes-rpc'
+qvm-run --no-gui -q -u root bitcoind "printf '%s\n' 'socat STDIO TCP:127.0.0.1:8332' > /rw/usrlocal/etc/qubes-rpc/qubes.bitcoind"
+qvm-run --no-gui -q -u root bitcoind 'chmod 0644 /rw/usrlocal/etc/qubes-rpc/qubes.bitcoind'
+
+## Set up aliases in 'bitcoind' VM.
+qvm-run --no-gui -q -u user bitcoind "printf '%s\n' 'alias bitcoin-cli=\"sudo -u bitcoin /home/bitcoin/bin/bitcoin-cli\"' >> ~/.bashrc"
+qvm-run --no-gui -q -u user bitcoind "printf '%s\n' 'alias bitcoind=\"sudo -u bitcoin /home/bitcoin/bin/bitcoind\"' >> ~/.bashrc"
+qvm-run --no-gui -q -u user bitcoind "printf '%s\n' 'alias bitcoin-qt=\"sudo -u bitcoin /home/bitcoin/bin/bitcoin-qt\"' >> ~/.bashrc"
+
+}
