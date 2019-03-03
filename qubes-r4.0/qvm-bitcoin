@@ -1,11 +1,17 @@
 #!/bin/bash
 
-function deploy_bitcoind ()
+function createvm_bitcoin ()
 {
 ## Check for existence of 'whonix-ws-14-bitcoin'.
 if [[ $(qvm-ls whonix-ws-14-bitcoin 2>/dev/null) ]]; then
-  printf "The VM, whonix-ws-14-bitcoin, already exists. Exiting.\n"
-  exit 1
+  printf "The VM, whonix-ws-14-bitcoin, already exists.\n"
+  read -p "Remove it and continue? (y/n) " remove_whonix-ws-14-bitcoin
+  if [[ "${remove_whonix-ws-14-bitcoin}" == [Yy] ]]; then
+    qvm-remove whonix-ws-14-bitcoin
+  else
+    printf "Exiting.\n"
+    exit 1
+  fi
 fi
 
 ## Get name of default Whonix workstation.
@@ -23,9 +29,9 @@ qvm-clone whonix-ws-14 whonix-ws-14-bitcoin
 if [[ $(qvm-ls -O netvm --raw-data whonix-ws-14-bitcoin) = "-" ]]; then
   printf "The TemplateVM, whonix-ws-14-bitcoin, has no NetVM.\n"
   read -p "What is the name of your Whonix update VM? " template_update_vm
-  while [[ ! $(qvm-ls "${template_update_vm}" 2>/dev/null) ]]; do
-    printf "The Whonix update VM, "${template_update_vm}", does not exist.\n"
-    read -p "What is the name of your Whonix update VM? " template_update_vm
+  while [[ ! $(qvm-ls "${template_update_vm}" 2>/dev/null) || $(qvm-ls -O netvm --raw-data "${template_update_vm}") = "-" ]]; do
+    printf "The Whonix update VM, "${template_update_vm}", does not exist or has no NetVM.\n"
+    read -p "What is the name of the VM used to update your Whonix templates? " template_update_vm
   done
 fi
 
@@ -73,8 +79,14 @@ printf "- Creating gateway VM: sys-bitcoin...\n"
 
 ## Check for existence of 'sys-bitcoin'.
 if [[ $(qvm-ls sys-bitcoin 2>/dev/null) ]]; then
-  printf "The gateway VM, sys-bitcoin, already exists. Exiting.\n"
-  exit 1
+  printf "The VM, sys-bitcoin, already exists. Exiting.\n"
+  read -p "Remove it and continue? (y/n) " remove_sys-bitcoin
+  if [[ "${remove_sys-bitcoin}" == [Yy] ]]; then
+    qvm-remove sys-bitcoin
+  else
+    printf "Exiting.\n"
+    exit 1
+  fi
 fi
 
 ## Get names of NetVM and TemplateVM of the gateway.
@@ -86,7 +98,7 @@ done
 gateway_template="whonix-gw-14"
 while [[ ! $(qvm-ls "${gateway_template}" 2>/dev/null) ]]; do
   printf "The TemplateVM, "${gateway_template}", does not exist.\n"
-  read -p "What is the name of the TemplateVM that your gateway should use? " gateway_template
+  read -p "What is the name of your Whonix gateway TemplateVM? " gateway_template
 done
 
 ## Create 'sys-bitcoin' gateway.
