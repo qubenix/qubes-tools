@@ -129,7 +129,7 @@ for vm in $(qvm-ls --fields name,netvm --raw-data --tags debian | grep "gateway-
     fi
   done
   ## Start apt dist-upgrade if update was successful. Give 10 retries.
-  if [[ "$aborted_update" -eq "0" ]]; then
+  if [[ "${aborted_update}" -eq "0" ]]; then
     aborted_upgrade="0"
     upgrade_count="0"
     qvm-run -q --nogui -p "${vm}" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; sudo apt dist-upgrade -V -y -q -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"; printf "Exit code: $?\n"' | tee -a "${logfile}"
