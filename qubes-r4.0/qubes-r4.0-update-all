@@ -1,0 +1,247 @@
+#!/bin/bash
+
+while [[ "${#}" -gt "0" ]]; do
+  case "${1}" in
+    --autoclean|-ac)
+    autoclean="1"
+    shift
+    ;;
+    --autoremove|-ar)
+    autoremove="1"
+    shift
+    ;;
+    --help|-h)
+    printf "%s\n" "
+Usage: "${0}" [options]
+
+Options:
+
+--autoclean, -ac  = autoclean
+--autoremove, -ar = autoremove
+--help, -h        = help menu
+"
+    exit 0
+    ;;
+    *)
+    break
+    ;;
+  esac
+done
+
+## Set update VM.
+## If empty, the gateway of the first TemplateVM (in alphabetical order) will be used.
+updatevm="gateway-update"
+
+## Log output dir and file.
+## If left empty a dir and file will be created in current dir.
+logdir="/home/user/update-all-templates-log/"
+logfile="/home/user/update-all-templates-log/update-all-templates.log"
+
+## Set variables if empty.
+if [[ -z "${updatevm}" ]]; then
+  updatevm=$(qvm-ls --raw-data -O name,class,netvm | grep "TemplateVM" | grep -v \|\- | head -1 | cut -d"|" -f 3)
+fi
+
+if [[ -z "${logdir}" ]]; then
+  logdir="$(pwd)/qubes-update-all-log/"
+fi
+
+if [[ -z "${logfile}" ]]; then
+  logfile="${logdir}"update-all-templates.log
+fi
+
+if [[ ! -e "${logdir}"  ]]; then
+  mkdir -p "${logdir}"
+fi
+
+## Rotate old logfile if it exists.
+if [[ -e "${logfile}" && ! -z $(head "${logfile}") ]]; then
+  mv "${logfile}" "${logfile}".old
+  touch "${logfile}"
+else
+  touch "${logfile}"
+fi
+
+## Print enabled options.
+clear
+if [[ "${autoremove}" -eq "1" ]]; then
+  printf "+ AUTOREMOVE ENABLED\n"
+fi
+if [[ "${autoclean}" -eq "1" ]]; then
+  printf "+ AUTOCLEAN ENABLED\n"
+fi
+
+## Start update VM, wait for Tor.
+printf "\nStarting update VM and waiting for Tor to connect...\n\n"
+if [[ $(qvm-ls --raw-data -O state "${updatevm}" | grep -c "Running") -ne "1" ]]; then
+  updatevm_was_running="0"
+else
+  updatevm_was_running="1"
+fi
+qvm-start -q --skip-if-running "${updatevm}"
+tor_count="0"
+tor_restart_count="0"
+while [[ $(qvm-run -u user -p "${updatevm}" 'grep "$(date -u +%b\ %d)" /var/log/tor/log' | grep -c -e "Bootstrapped 100%") -lt "1" ]]; do
+  sleep 1
+  tor_count=$((tor_count+1))
+  if [[ "${updatevm_was_running}" -eq "1" && "${tor_count}" -eq "30" ]]; then
+    qvm-run -u root -p "${updatevm}" 'systemctl restart tor@default.service'
+    tor_count="0"
+  fi
+  if [[ "${tor_count}" -ge "180" ]]; then
+    tor_restart_count=$((tor_restart_count+1))
+    printf "\n[!][!] RESTARTING TOR IN GATEWAY-UPDATE. ATTEMPT: "${tor_restart_count}" / 10 [!][!]\n\n"
+    qvm-run -u root -p "${updatevm}" 'systemctl restart tor@default.service'
+    tor_count="0"
+      if [[ "${tor_restart_count}" -ge "10" ]]; then
+        printf "\n[!][!] COULD NOT RESTART TOR, CHECK NETWORK. EXITING. [!][!]\n" | tee -a "${logfile}"
+        exit 1
+      fi
+  fi
+done
+
+## Upgrade Debian based TemplateVM's.
+for vm in $(qvm-ls --fields name,netvm --raw-data --tags debian | grep "gateway-" | cut -d "|" -f 1 | sort); do
+  printf "\n[+] Starting upgrade for VM "${vm}" at $(date +%x-%T).\n\n" | tee -a "${logfile}"
+  ## Check if vm was running.
+  if [[ $(qvm-ls --raw-data -O state "${vm}" | grep -c "Running") -ne "1" ]]; then
+    vm_was_running="0"
+  else
+    vm_was_running="1"
+  fi
+  ## Start vm, wait for it.
+  qvm-start -q --skip-if-running "${vm}"
+  while [[ $(qvm-ls --fields name,state,class --raw-data --tags debian | grep "${vm}" | grep -c "Running") -ne "1" ]]; do
+    sleep 1
+  done
+  ## Start apt update. Give 10 retries.
+  aborted_update="0"
+  update_count="0"
+  qvm-run -q --nogui -p "${vm}" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; sudo timeout 10m sudo apt update; printf "Exit code: $?\n"' | tee -a "${logfile}"
+  while [[ $(tail -1 "${logfile}" | sed 's|Exit\ code\:\ ||') -ne "0" ]] ; do
+    update_count=$((update_count+1))
+    printf "\n[!][!] UPDATE FAILED FOR: "${vm}". RETRY ATTEMPT $update_count / 10. [!][!]\n\n" | tee -a "${logfile}"
+    sleep 10
+    qvm-run -q --nogui -p "${vm}" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; sudo timeout 10m sudo apt update; printf "Exit code: $?\n"' | tee -a "${logfile}"
+    if [[ "$update_count" -ge "10" ]]; then
+      printf "\n[!][!] UPDATE FOR VM: "${vm}" WAS NOT SUCCESSFUL AFTER 10 RETRY ATTEMPTS. ABORTING. [!][!]\n\n" | tee -a "${logfile}"
+      aborted_update="1"
+      break
+    fi
+  done
+  ## Start apt dist-upgrade if update was successful. Give 10 retries.
+  if [[ "$aborted_update" -eq "0" ]]; then
+    aborted_upgrade="0"
+    upgrade_count="0"
+    qvm-run -q --nogui -p "${vm}" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; sudo apt dist-upgrade -V -y -q -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"; printf "Exit code: $?\n"' | tee -a "${logfile}"
+    while [[ $(tail -1 "${logfile}" | sed 's|Exit\ code\:\ ||') -ne "0" ]]; do
+      upgrade_count=$((upgrade_count+1))
+      printf "\n[!][!] UPGRADE FAILED FOR VM: "${vm}". RETRY ATTEMPT "${upgrade_count}" / 10. [!][!]\n\n" | tee -a "${logfile}"
+      sleep 10
+      qvm-run -q --nogui -p "${vm}" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; sudo apt dist-upgrade -V -y -q -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"; printf "Exit code: $?\n"' | tee -a "${logfile}"
+      if [[ "$upgrade_count" -ge "10" ]]; then
+        printf "\n[!][!] UPGRADE FOR VM: "${vm}" WAS NOT SUCCESSFUL AFTER 10 RETRY ATTEMPTS. ABORTING. [!][!]\n\n" | tee -a "${logfile}"
+        aborted_upgrade="1"
+        break
+      fi
+    done
+  fi
+  ## Start autoremove. Should only need one try, but we give 10 retries.
+  if [[ "${aborted_update}" -eq "0" && "${aborted_upgrade}" -eq "0" && "${autoremove}" -eq "1" ]]; then
+    autoremove_count="0"
+    qvm-run -q --nogui -u root -p "${vm}" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; apt autoremove -y; printf "Exit code: $?\n"' | tee -a "${logfile}"
+    while [[ $(tail -1 "${logfile}" | sed 's|Exit\ code\:\ ||') -ne "0" ]]; do
+      autoremove_count=$((autoremove_count+1))
+      sleep 10
+      qvm-run -q --nogui -u root -p "${vm}" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; apt autoremove -y; printf "Exit code: $?\n"' | tee -a "${logfile}"
+      if [[ "$autoremove_count" -ge "10" ]]; then
+        printf "\n[!][!] AUTOREMOVE FOR VM: "${vm}" WAS NOT SUCCESSFUL AFTER RETRY 10 ATTEMPTS. ABORTING. [!][!]\n\n" | tee -a "${logfile}"
+        break
+      fi
+    done
+  fi
+  ## Start autoclean. Should only need one try, but we give 10 retries.
+  if [[ "${aborted_update}" -eq "0" && "${aborted_upgrade}" -eq "0" && "${autoclean}" -eq "1" ]]; then
+    autoclean_count="0"
+    qvm-run -q --nogui -u root -p "${vm}" 'export DEBIAN_FRONTEND=noninteractive; export TERM="vt100"; apt autoclean -y; printf "Exit code: $?\n"' | tee -a "${logfile}"
+    while [[ $(tail -1 "${logfile}" | sed 's|Exit\ code\:\ ||') != "0" ]]; do
+      autoclean_count=$((autoremove_count+1))
+      sleep 10
+      qvm-run -q --nogui -u root -p "${vm}" 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; apt autoclean -y; printf "Exit code: $?\n"' | tee -a "${logfile}"
+      if [[ "${autoclean_count}" -ge "10" ]]; then
+        printf "\n[!][!] AUTOCLEAN FOR VM: "${vm}" WAS NOT SUCCESSFUL AFTER RETRY 10 ATTEMPTS. ABORTING. [!][!]\n\n" | tee -a "${logfile}"
+        break
+      fi
+    done
+  fi
+  ## Shutdown vm.
+  if [[ "${vm_was_running}" = "0" ]]; then
+    qvm-shutdown -q "${vm}"
+  else
+    qvm-shutdown --wait --timeout 20 "${vm}"
+    sleep 2s
+    qvm-start "${vm}"
+  fi
+  printf "\n[-] Finished upgrade for VM "${vm}" at $(date +%x-%T).\n\n" | tee -a "${logfile}"
+done
+
+## Upgrade Fedora based TemplateVM's.
+for vm in $(qvm-ls --fields name,netvm --raw-data --tags fedora | grep "gateway-" | cut -d "|" -f 1 | sort); do
+  printf "\n[+] Starting upgrade for VM "${vm}" at $(date +%x-%T).\n\n" | tee -a "${logfile}"
+  ## Check if vm was running.
+  if [[ $(qvm-ls --raw-data -O state "${vm}" | grep -c "Running") -ne "1" ]]; then
+    vm_was_running="0"
+  else
+    vm_was_running="1"
+  fi
+  ## Start vm, wait for it.
+  qvm-start -q --skip-if-running "${vm}"
+  while [[ $(qvm-ls --fields name,state,class --raw-data --tags fedora | grep "${vm}" | grep -c "Running") -ne "1" ]]; do
+    sleep 1
+  done
+  upgrade_count="0"
+  qvm-run -q --nogui -u root -p "${vm}" 'export TERM="vt100"; dnf upgrade --allowerasing --best --enablerepo=qubes-vm-r4.0-current-testing --refresh -v -y; printf "Exit code: $?\n"' | tee -a "${logfile}"
+  while [[ $(tail -1 "${logfile}" | sed 's|Exit\ code\:\ ||') != "0" && $(tail -1 "${logfile}" | sed 's|Exit\ code\:\ ||') != "Complete!" ]]; do
+    upgrade_count=$((upgrade_count+1))
+    printf "\n[!][!] UPGRADE FAILED FOR VM: "${vm}". RETRY ATTEMPT "${upgrade_count}" / 10. [!][!]\n\n" | tee -a "${logfile}"
+    sleep 10
+    qvm-run -q --nogui -u root -p "${vm}" 'export TERM="vt100"; dnf upgrade --allowerasing --best --enablerepo=qubes-vm-r4.0-current-testing  --refresh -v -y' | tee -a "${logfile}"
+    if [[ "${upgrade_count}" -ge "10" ]]; then
+      printf "\n[!][!] UPGRADE FOR VM: "${vm}" WAS NOT SUCCESSFUL AFTER 10 ATTEMPTS. ABORTING. [!][!]\n\n" | tee -a "${logfile}"
+      break
+    fi
+  done
+  ## Shutdown vm.
+  if [[ "${vm_was_running}" = "0" ]]; then
+    qvm-shutdown -q "${vm}"
+  else
+    qvm-shutdown --wait --timeout 20 "${vm}"
+    sleep 2s
+    qvm-start "${vm}"
+  fi
+  printf "\n[-] Finished upgrade for VM ${vm} at $(date +%x-%T).\n\n" | tee -a "${logfile}"
+done
+
+# Dom0 upgrade.
+printf "\n[+] Starting upgrade for dom0 at $(date +%x-%T).\n\n" | tee -a "${logfile}"
+dom0update_count="0"
+set -o pipefail
+sudo qubes-dom0-update --clean --enablerepo=qubes-dom0-current-testing -v -y | tee -a "${logfile}"
+while [[ "${?}" -ne "0" && $(tail -5 "${logfile}" | grep -c "Nothing to download") -lt "1" ]]; do
+  sudo qubes-dom0-update --enablerepo=qubes-dom0-current-testing -v -y | tee -a "${logfile}"
+  dom0update_count=$((dom0update_count+1))
+  if [[ "${dom0update_count}" -ge "10" ]]; then
+    printf "\n[!][!] UPGRADE FOR dom0 WAS NOT SUCCESSFUL AFTER 10 ATTEMPTS. ABORTING. [!][!]\n\n" | tee -a "${logfile}"
+    break
+  fi
+done
+set +o pipefail
+printf "\n[-] Finished upgrade for dom0 at $(date +%x-%T).\n\n" | tee -a "${logfile}"
+
+# Shutdown update vms.
+if [[ "${updatevm_was_running}" -eq "0" ]]; then
+  printf "\nShutting down update VMs...\n\n"
+  qvm-shutdown -q --wait --timeout 20 "${updatevm}"
+fi
+
+exit 0
