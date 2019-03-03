@@ -46,7 +46,7 @@ if [[ -z "${logdir}" ]]; then
 fi
 
 if [[ -z "${logfile}" ]]; then
-  logfile="${logdir}"update-all-templates.log
+  logfile="${logdir}update-all-templates.log"
 fi
 
 if [[ ! -e "${logdir}"  ]]; then
@@ -64,14 +64,14 @@ fi
 ## Print enabled options.
 clear
 if [[ "${autoremove}" -eq "1" ]]; then
-  printf "+ AUTOREMOVE ENABLED\n"
+  printf "[+] AUTOREMOVE ENABLED\n"
 fi
 if [[ "${autoclean}" -eq "1" ]]; then
-  printf "+ AUTOCLEAN ENABLED\n"
+  printf "[+] AUTOCLEAN ENABLED\n"
 fi
 
 ## Start update VM, wait for Tor.
-printf "\nStarting update VM and waiting for Tor to connect...\n\n"
+printf "[+] Starting update VM. Waiting for Tor to connect...\n\n"
 if [[ $(qvm-ls --raw-data -O state "${updatevm}" | grep -c "Running") -ne "1" ]]; then
   updatevm_was_running="0"
 else
@@ -181,7 +181,7 @@ for vm in $(qvm-ls --fields name,netvm --raw-data --tags debian | grep "gateway-
     sleep 2s
     qvm-start "${vm}"
   fi
-  printf "\n[-] Finished upgrade for VM "${vm}" at $(date +%x-%T).\n\n" | tee -a "${logfile}"
+  printf "\n[+] Finished upgrade for VM "${vm}" at $(date +%x-%T).\n\n" | tee -a "${logfile}"
 done
 
 ## Upgrade Fedora based TemplateVM's.
@@ -218,7 +218,7 @@ for vm in $(qvm-ls --fields name,netvm --raw-data --tags fedora | grep "gateway-
     sleep 2s
     qvm-start "${vm}"
   fi
-  printf "\n[-] Finished upgrade for VM ${vm} at $(date +%x-%T).\n\n" | tee -a "${logfile}"
+  printf "\n[+] Finished upgrade for VM "${vm}" at $(date +%x-%T).\n\n" | tee -a "${logfile}"
 done
 
 # Dom0 upgrade.
@@ -235,7 +235,7 @@ while [[ "${?}" -ne "0" && $(tail -5 "${logfile}" | grep -c "Nothing to download
   fi
 done
 set +o pipefail
-printf "\n[-] Finished upgrade for dom0 at $(date +%x-%T).\n\n" | tee -a "${logfile}"
+printf "\n[+] Finished upgrade for dom0 at $(date +%x-%T).\n\n" | tee -a "${logfile}"
 
 # Shutdown update vms.
 if [[ "${updatevm_was_running}" -eq "0" ]]; then
