@@ -1,5 +1,0 @@
-#!/bin/sh
-
-qvm-ls --raw-data name | tr -d "\|\[\]\=\>\{\}" | sed 's|dom0||' | sort
-
-exit 0

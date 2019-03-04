@@ -1,5 +1,0 @@
-#!/bin/bash
-
-qvm-ls --raw-data name type | grep -v Tpl | grep -v Proxy | grep -v Net | grep -v Admin | tr -d "|" | sort
-
-exit 0
