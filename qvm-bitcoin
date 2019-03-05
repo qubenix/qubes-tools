@@ -144,7 +144,7 @@ if [[ ! $(qvm-ls sys-bitcoin 2>/dev/null) ]]; then
   qvm-start bitcoind
 
   ## Stop `bitcoind` service.
-  qvm-run --no-gui -q -u root 'systemctl stop bitcoind.service'
+  qvm-run --no-gui -q -u root bitcoind 'systemctl stop bitcoind.service'
 
   ## Clone the Bitcoin repository in 'bitcoind' VM.
   printf "- Getting the bitcoin source code...\n"
@@ -181,11 +181,11 @@ if [[ ! $(qvm-ls sys-bitcoin 2>/dev/null) ]]; then
   ## Configure Bitcoin Core in 'bitcoind' VM.
   printf "- Configuring bitcoind...\n"
   qvm-run --no-gui -q -u bitcoin bitcoind 'mkdir -m 0700 ~/.bitcoin'
-  gateway_ip=$(qvm-prefs sys-bitcoin ip)
+  sys_bitcoin_ip=$(qvm-prefs sys-bitcoin ip)
   qvm-run --no-gui -q -u bitcoin bitcoind "printf '%s\n' 'listen=1
-onion="${gateway_ip}":9111
+onion="${sys_bitcoin_ip}":9111
 onlynet=onion
-proxy="${gateway_ip}":9111
+proxy="${sys_bitcoin_ip}":9111
 txindex=1' > ~/.bitcoin/bitcoin.conf" 
   qvm-run --no-gui -q -u bitcoin bitcoind 'chmod 0600 ~/.bitcoin/bitcoin.conf'
 
@@ -216,6 +216,30 @@ else
   if [[ "${remove_bitcoind}" = [Yy] ]]; then
     qvm-remove bitcoind
     createvm_bitcoind
+  else
+    printf "Exiting.\n"
+    exit 1
+  fi
+fi
+
+## Check for existence of 'sys-electrum-personal-server' VM.
+if [[ $(qvm-ls sys-electrum-personal-server 2>/dev/null) && ! $(qvm-tags sys-electrum-personal-server | grep "created_by_qvm-bitcoin") ]]; then
+  printf "Cannot continue with an existing VM named sys-electrum-personal-server\n"
+  read -p "Remove it and continue? (y/n) " remove_sys_electrum_personal_server
+  if [[ "${remove_sys_electrum_personal_server}" = [Yy] ]]; then
+    qvm-remove sys-electrum-personal-server
+  else
+    printf "Exiting.\n"
+    exit 1
+  fi
+fi
+
+## Check for existence of 'electrum-personal-server' VM.
+if [[ $(qvm-ls electrum-personal-server 2>/dev/null) && ! $(qvm-tags electrum-personal-server | grep "created_by_qvm-bitcoin") ]]; then
+  printf "Cannot continue with an existing VM named electrum-personal-server\n"
+  read -p "Remove it and continue? (y/n) " remove_electrum_personal_server
+  if [[ "${remove_electrum_personal_server}" = [Yy] ]]; then
+    qvm-remove electrum-personal-server
   else
     printf "Exiting.\n"
     exit 1
