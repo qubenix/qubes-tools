@@ -43,11 +43,11 @@ if [[ ! $(qvm-ls whonix-ws-14-bitcoin 2>/dev/null) ]]; then
   ## Get the name of a Whonix workstation TemplateVM.
   default_whonix_ws="whonix-ws-14"
   while [[ ! $(qvm-ls "${default_whonix_ws}" 2>/dev/null) ]]; do
-    printf "The default Whonix workstation, "${default_whonix_ws}", does not exist.\n"
+    printf "The default Whonix workstation TemplateVM, "${default_whonix_ws}", does not exist.\n"
     read -p "What is the name of your Whonix workstation TemplateVM? " default_whonix_ws
   done
 
-  ## Clone the  default Whonix workstation.
+  ## Clone the  default Whonix workstation VM.
   printf "- Cloning "${default_whonix_ws}"...\n"
   qvm-clone "${default_whonix_ws}" whonix-ws-14-bitcoin
 
@@ -61,16 +61,19 @@ if [[ ! $(qvm-ls whonix-ws-14-bitcoin 2>/dev/null) ]]; then
     done
   fi
 
-  ## Update and install dependencies to 'whonix-ws-14-bitcoin'.
+  ## Update and install dependencies to 'whonix-ws-14-bitcoin' VM.
   printf "- Updating and installing dependencies to whonix-ws-14-bitcoin...\n"
-  qvm-run --no-gui -p -q -u root whonix-ws-14-bitcoin 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; apt update && apt install -y automake autotools-dev build-essential git libboost-chrono-dev libboost-filesystem-dev libboost-system-dev libboost-test-dev libboost-thread-dev libevent-dev libprotobuf-dev libqrencode-dev libssl-dev libtool libzmq3-dev pkg-config protobuf-compiler qttools5-dev qttools5-dev-tools'
+  qvm-run --no-gui -p -q -u root whonix-ws-14-bitcoin 'export DEBIAN_FRONTEND="noninteractive"; export TERM="vt100"; \
+  apt update && apt install -y automake autotools-dev build-essential git libboost-chrono-dev libboost-filesystem-dev \
+  libboost-system-dev libboost-test-dev libboost-thread-dev libevent-dev libprotobuf-dev libqrencode-dev libssl-dev \
+  libtool libzmq3-dev pkg-config protobuf-compiler qttools5-dev qttools5-dev-tools'
 
   printf "- Setting up TemplateVM: whonix-ws-14-bitcoin...\n"
 
-  ## Create system user on 'whonix-ws-14-bitcoin'.
+  ## Create system user on 'whonix-ws-14-bitcoin' VM.
   qvm-run --no-gui -q -u root whonix-ws-14-bitcoin 'adduser --system bitcoin'
 
-  ## Set up `systemd` `bitcoind` service on 'whonix-ws-14-bitcoin'.
+  ## Set up `systemd` `bitcoind` service on 'whonix-ws-14-bitcoin' VM.
   qvm-run --no-gui -q -u root whonix-ws-14-bitcoin "printf '%s\n' '[Unit]
 Description=Bitcoin daemon
 ConditionPathExists=/var/run/qubes-service/bitcoind
@@ -98,14 +101,14 @@ WantedBy=multi-user.target' > /lib/systemd/system/bitcoind.service"
   qvm-run --no-gui -q -u root whonix-ws-14-bitcoin 'systemctl enable bitcoind.service'
   qvm-service --enable bitcoind bitcoind
 
-  ## Shutdown 'whonix-ws-14-bitcoin'.
+  ## Shutdown 'whonix-ws-14-bitcoin' VM.
   qvm-shutdown whonix-ws-14-bitcoin
 
   ## Add a tag.
   qvm-tags whonix-ws-14-bitcoin add created_by_qvm-bitcoin
 fi
 
-## Create 'sys-bitcoin' gateway, if it doesn't already exist.
+## Create 'sys-bitcoin' gateway VM, if it doesn't already exist.
 if [[ ! $(qvm-ls sys-bitcoin 2>/dev/null) ]]; then
   printf "- Creating gateway VM: sys-bitcoin...\n"
 
@@ -120,17 +123,19 @@ if [[ ! $(qvm-ls sys-bitcoin 2>/dev/null) ]]; then
     printf "The TemplateVM, "${gateway_template}", does not exist.\n"
     read -p "What is the name of your Whonix gateway TemplateVM? " gateway_template
   done
-  qvm-create --label purple --prop maxmem='400' --prop netvm="${gateway_netvm}" --prop provides_network='True' --prop vcpus='1' --template "${gateway_template}" sys-bitcoin
+  qvm-create --label purple --prop maxmem='400' --prop netvm="${gateway_netvm}" --prop provides_network='True' \
+  --prop vcpus='1' --template "${gateway_template}" sys-bitcoin
   printf "- Setting up gateway VM: sys-bitcoin...\n"
 
-  ## Set up `onion-grater` on 'sys-bitcoin'.
-  qvm-run --no-gui -q -u root sys-bitcoin 'install -D -t /usr/local/etc/onion-grater-merger.d/ /usr/share/onion-grater-merger/examples/40_bitcoind.yml'
+  ## Set up `onion-grater` on 'sys-bitcoin' VM.
+  qvm-run --no-gui -q -u root sys-bitcoin 'install -D -t /usr/local/etc/onion-grater-merger.d/ \
+  /usr/share/onion-grater-merger/examples/40_bitcoind.yml'
   qvm-run --no-gui -q -u root sys-bitcoin 'systemctl restart onion-grater.service'
   ## Add a tag.
   qvm-tags sys-bitcoin add created_by_qvm-bitcoin
 fi
 
-## Create 'bitcoind' AppVM, if it doesn't already exist.
+## Create 'bitcoind' VM, if it doesn't already exist.
 if [[ ! $(qvm-ls sys-bitcoin 2>/dev/null) ]]; then
   printf "- Creating AppVM: bitcoind...\n"
   qvm-create --label red --prop netvm='sys-bitcoin' --template whonix-ws-14-bitcoin bitcoind
@@ -153,7 +158,9 @@ if [[ ! $(qvm-ls sys-bitcoin 2>/dev/null) ]]; then
   ## Get signing keys in 'bitcoind' VM. Verify fingerprints:
   ## https://github.com/bitcoin/bitcoin/blob/0.17/contrib/verify-commits/trusted-keys.
   printf "- Getting the bitcoin signing keys...\n"
-  qvm-run --no-gui -p -u bitcoin bitcoind 'gpg --recv-keys 71A3B16735405025D447E8F274810B012346C9A6 133EAC179436F14A5CF1B794860FEB804E669320 32EE5C4C3FA15CCADB46ABE529D4BCB6416F53EC B8B3F1C0E58C15DB6A81D30C3648A882F4316B9B'
+  qvm-run --no-gui -p -u bitcoin bitcoind 'gpg --recv-keys 71A3B16735405025D447E8F274810B012346C9A6 \
+  133EAC179436F14A5CF1B794860FEB804E669320 32EE5C4C3FA15CCADB46ABE529D4BCB6416F53EC \
+  B8B3F1C0E58C15DB6A81D30C3648A882F4316B9B'
 
   printf "- Verifying the bitcoin source code...\n"
 
@@ -172,7 +179,9 @@ if [[ ! $(qvm-ls sys-bitcoin 2>/dev/null) ]]; then
 
   ## Prepare to build Bitcoin Core in 'bitcoind' VM.
   printf "- Configuring bitcoind source code for build...\n"
-  qvm-run --no-gui -p -u bitcoin bitcoind 'cd ~/bitcoin; export BDB_PREFIX="/home/bitcoin/bitcoin/db4"; ~/bitcoin/autogen.sh && ~/bitcoin/configure BDB_LIBS="-L${BDB_PREFIX}/lib -ldb_cxx-4.8" BDB_CFLAGS="-I${BDB_PREFIX}/include" --bindir=/home/bitcoin/bin --prefix=/home/bitcoin/bin'
+  qvm-run --no-gui -p -u bitcoin bitcoind 'cd ~/bitcoin; export BDB_PREFIX="/home/bitcoin/bitcoin/db4"; \
+  ~/bitcoin/autogen.sh && ~/bitcoin/configure BDB_LIBS="-L${BDB_PREFIX}/lib -ldb_cxx-4.8" \
+  BDB_CFLAGS="-I${BDB_PREFIX}/include" --bindir=/home/bitcoin/bin --prefix=/home/bitcoin/bin'
 
   ## Build and install Bitcoin Core in 'bitcoind' VM.
   printf "- Building and installing bitcoind...\n"
@@ -244,6 +253,33 @@ if [[ $(qvm-ls electrum-personal-server 2>/dev/null) && ! $(qvm-tags electrum-pe
     printf "Exiting.\n"
     exit 1
   fi
+fi
+
+## Create 'electrum-personal-server' VM, if it doesn't already exist.
+
+## Create 'sys-electrum-personal-server' gateway VM, if it doesn't already exist.
+if [[ ! $(qvm-ls sys-electrum-personal-server 2>/dev/null) ]]; then
+  printf "- Creating gateway VM: sys-electrum-personal-server...\n"
+
+  ## Get names of NetVM and TemplateVM of the gateway.
+  gateway_netvm="sys-firewall"
+  while [[ ! $(qvm-ls "${gateway_netvm}" 2>/dev/null) ]]; do
+    printf "The NetVM, "${gateway_netvm}", does not exist.\n"
+    read -p "What is the name of the NetVM that your gateway should use? " gateway_netvm
+  done
+  gateway_template="whonix-gw-14"
+  while [[ ! $(qvm-ls "${gateway_template}" 2>/dev/null) ]]; do
+    printf "The TemplateVM, "${gateway_template}", does not exist.\n"
+    read -p "What is the name of your Whonix gateway TemplateVM? " gateway_template
+  done
+  qvm-create --label purple --prop maxmem='400' --prop netvm="${gateway_netvm}" --prop provides_network='True' \
+  --prop vcpus='1' --template "${gateway_template}" sys-electrum-personal-server
+  printf "- Setting up gateway VM: sys-electrum-personal-server...\n"
+
+  ## TODO: Set up Tor onion service.
+
+  ## Add a tag.
+  qvm-tags sys-bitcoin add created_by_qvm-bitcoin
 fi
 
 }
