@@ -51,7 +51,8 @@ if [[ ! $(qvm-ls whonix-ws-14-bitcoin 2>/dev/null) ]]; then
   done
 
   ## Clone the  default Whonix workstation VM.
-  printf "- Cloning "${default_workstation_template}"...\n"
+  printf '%s\n' '- Cloning "${default_workstation_template}"...'
+  sleep 1s
   qvm-clone "${default_workstation_template}" whonix-ws-14-bitcoin
 
   ## Make sure the TemplateVM has networking.
@@ -65,13 +66,15 @@ if [[ ! $(qvm-ls whonix-ws-14-bitcoin 2>/dev/null) ]]; then
   fi
 
   ## Update and install dependencies to 'whonix-ws-14-bitcoin' VM.
-  printf "- Updating and installing dependencies to whonix-ws-14-bitcoin...\n"
+  printf '%s\n' '- Updating and installing dependencies to whonix-ws-14-bitcoin...'
+  sleep 1s
   qvm-run --no-gui -p -u root whonix-ws-14-bitcoin 'export DEBIAN_FRONTEND="noninteractive" TERM="vt100"; \
   apt update && apt install -y automake autotools-dev build-essential git libboost-chrono-dev libboost-filesystem-dev \
   libboost-system-dev libboost-test-dev libboost-thread-dev libevent-dev libprotobuf-dev libqrencode-dev libssl-dev \
   libtool libzmq3-dev pkg-config protobuf-compiler qttools5-dev qttools5-dev-tools'
 
-  printf "- Setting up TemplateVM: whonix-ws-14-bitcoin...\n"
+  printf '%s\n' '- Setting up TemplateVM: whonix-ws-14-bitcoin...'
+  sleep 1s
 
   ## Create system user on 'whonix-ws-14-bitcoin' VM.
   qvm-run --no-gui -q -u root whonix-ws-14-bitcoin 'adduser --system bitcoin'
@@ -127,12 +130,14 @@ if [[ ! $(qvm-ls sys-bitcoin 2>/dev/null) ]]; then
   done
 
   ## Create the 'sys-bitcoin' VM.
-  printf "- Creating gateway VM: sys-bitcoin...\n"
+  printf '%s\n' '- Creating gateway VM: sys-bitcoin...'
+  sleep 1s
   qvm-create --label purple --prop maxmem='400' --prop netvm="${gateway_netvm}" --prop provides_network='True' \
   --prop vcpus='1' --template "${gateway_template}" sys-bitcoin
 
   ## Set up `onion-grater` on 'sys-bitcoin' VM.
-  printf "- Setting up gateway VM: sys-bitcoin...\n"
+  printf '%s\n' '- Setting up gateway VM: sys-bitcoin...'
+  sleep 1s
   qvm-run --no-gui -q -u root sys-bitcoin 'install -D -t /usr/local/etc/onion-grater-merger.d/ \
   /usr/share/onion-grater-merger/examples/40_bitcoind.yml'
   qvm-run --no-gui -q -u root sys-bitcoin 'systemctl restart onion-grater.service'
@@ -142,13 +147,15 @@ fi
 
 ## Create 'bitcoind' VM, if it doesn't already exist.
 if [[ ! $(qvm-ls sys-bitcoin 2>/dev/null) ]]; then
-  printf "- Creating AppVM: bitcoind...\n"
+  printf '%s\n' '- Creating AppVM: bitcoind...'
+  sleep 1s
   qvm-create --label red --prop netvm='sys-bitcoin' --template whonix-ws-14-bitcoin bitcoind
 
   ## Increase private volume size of 'bitcoind' VM.
   qvm-volume resize bitcoind:private 250G
 
-  printf "- Setting up AppVM: bitcoind...\n"
+  printf '%s\n' '- Setting up AppVM: bitcoind...'
+  sleep 1s
 
   ## Start 'bitcoind' VM.
   qvm-start bitcoind
@@ -157,17 +164,20 @@ if [[ ! $(qvm-ls sys-bitcoin 2>/dev/null) ]]; then
   qvm-run --no-gui -q -u root bitcoind 'systemctl stop bitcoind.service'
 
   ## Clone the Bitcoin repository on the 'bitcoind' VM.
-  printf "- Getting the bitcoin source code...\n"
+  printf '%s\n' '- Getting the bitcoin source code...'
+  sleep 1s
   qvm-run --no-gui -p -u bitcoin bitcoind 'git clone --branch 0.17 --progress https://github.com/bitcoin/bitcoin ~/bitcoin'
 
   ## Get signing keys. Verify fingerprints:
   ## https://github.com/bitcoin/bitcoin/blob/0.17/contrib/verify-commits/trusted-keys.
-  printf "- Getting the bitcoin signing keys...\n"
+  printf '%s\n' '- Getting the bitcoin signing keys...'
+  sleep 1s
   qvm-run --no-gui -p -u bitcoin bitcoind 'gpg --keyserver hkp://jirk5u4osbsr34t5.onion --recv-keys \
   71A3B16735405025D447E8F274810B012346C9A6 133EAC179436F14A5CF1B794860FEB804E669320 \
   32EE5C4C3FA15CCADB46ABE529D4BCB6416F53EC B8B3F1C0E58C15DB6A81D30C3648A882F4316B9B'
 
-  printf "- Verifying the bitcoin source code...\n"
+  printf '%s\n' '- Verifying the bitcoin source code...'
+  sleep 1s
 
   ## Verify downloaded source code.
   verify_bitcoin=$(qvm-run --no-gui -p -q -u bitcoin bitcoind 'cd ~/bitcoin; git verify-commit HEAD 2>&1 | grep -c BAD')
@@ -179,21 +189,25 @@ if [[ ! $(qvm-ls sys-bitcoin 2>/dev/null) ]]; then
   done
 
   ## Build Berkeley DB.
-  printf "- Building Berkeley database...\n"
+  printf '%s\n' '- Building Berkeley database...'
+  sleep 1s
   qvm-run --no-gui -p -u bitcoin bitcoind 'cd ~/bitcoin; ~/bitcoin/contrib/install_db4.sh ~/bitcoin'
 
   ## Prepare to build Bitcoin Core.
-  printf "- Configuring bitcoind source code for build...\n"
+  printf '%s\n' '- Configuring bitcoind source code for build...'
+  sleep 1s
   qvm-run --no-gui -p -u bitcoin bitcoind 'cd ~/bitcoin; export BDB_PREFIX="/home/bitcoin/bitcoin/db4"; \
   ~/bitcoin/autogen.sh && ~/bitcoin/configure BDB_LIBS="-L${BDB_PREFIX}/lib -ldb_cxx-4.8" \
   BDB_CFLAGS="-I${BDB_PREFIX}/include" --bindir=/home/bitcoin/bin --prefix=/home/bitcoin/bin'
 
   ## Build and install Bitcoin Core.
-  printf "- Building and installing bitcoind...\n"
+  printf '%s\n' '- Building and installing bitcoind...'
+  sleep 1s
   qvm-run --no-gui -p -u bitcoin bitcoind 'cd ~/bitcoin; make check && make install'
 
   ## Configure Bitcoin Core.
-  printf "- Configuring bitcoind...\n"
+  printf '%s\n' '- Configuring bitcoind...'
+  sleep 1s
   qvm-run --no-gui -q -u bitcoin bitcoind 'mkdir -m 0700 ~/.bitcoin'
   sys_bitcoin_ip=$(qvm-prefs sys-bitcoin ip)
   qvm-run --no-gui -q -u bitcoin bitcoind "printf '%s\n' 'listen=1
@@ -282,7 +296,8 @@ if [[ ! $(qvm-ls sys-electrum-personal-server 2>/dev/null) ]]; then
   done
 
   ## Create the 'sys-electrum-personal-server' VM.
-  printf "- Creating gateway VM: sys-electrum-personal-server...\n"
+  printf '%s\n' '- Creating gateway VM: sys-electrum-personal-server...'
+  sleep 1s
   qvm-create --label purple --prop maxmem='400' --prop netvm="${gateway_netvm}" --prop provides_network='True' \
   --prop vcpus='1' --template "${gateway_template}" sys-electrum-personal-server
 
@@ -292,7 +307,8 @@ fi
 
 ## Create 'electrum-personal-server' VM, if it doesn't already exist.
 if [[ ! $(qvm-ls electrum-personal-server 2>/dev/null) ]]; then
-  printf "- Setting up TemplateVM: whonix-ws-14-bitcoin..."
+  printf '%s\n' '- Setting up TemplateVM: whonix-ws-14-bitcoin...'
+  sleep 1s
   ## Update and install dependencies to 'whonix-ws-14-bitcoin' VM.
   qvm-run --no-gui -p -u root whonix-ws-14-bitcoin 'if [[ ! $(dpkg -s python-virtualenv 2>/dev/null) ]]; then \
   export DEBIAN_FRONTEND="noninteractive" TERM="vt100"; apt update && apt install -y python-virtualenv; fi'
@@ -330,7 +346,8 @@ WantedBy=multi-user.target' > /lib/systemd/system/electrum-personal-server.servi
   qvm-shutdown whonix-ws-14-bitcoin
 
   ## Create the 'electrum-personal-server' VM.
-  printf "- Creating AppVM: electrum-personal-server...\n"
+  printf '%s\n' '- Creating AppVM: electrum-personal-server...'
+  sleep 1s
   qvm-create --label red --prop maxmem='400' --prop netvm='sys-electrum-personal-server' --prop vcpus='1' \
   --template whonix-ws-14-bitcoin electrum-personal-server
 
@@ -352,14 +369,16 @@ wallet=electrum-personal-server' >> ~/.bitcoin/bitcoin.conf"
   qvm-run --no-gui -q -u root bitcoin 'systemctl restart bitcoind.service'
 
   ## Download `electrum-personal-server` and signature on the 'electrum-personal-server VM.
-  printf '- Getting electrum-personal-server v0.1.6 and signature file...'
+  printf '%s\n' '- Getting electrum-personal-server v0.1.6 and signature file...'
+  sleep 1s
   qvm-run --no-gui -p -q -u electrum-personal-server electrum-personal-server 'curl -LO \
   "https://github.com/chris-belcher/electrum-personal-server/archive/eps-v0.1.6.tar.gz" -O \
   "https://github.com/chris-belcher/electrum-personal-server/releases/download/eps-v0.1.6/eps-v0.1.6.tar.gz.asc"'
 
   ## Get signing keys on 'electrum-personal-server' VM. Verify fingerprint:
   ## https://github.com/chris-belcher/electrum-personal-server/releases.
-  printf "- Getting the electrum-personal-server signing key...\n"
+  printf '%s\n' '- Getting the electrum-personal-server signing key...'
+  sleep 1s
   qvm-run --no-gui -p -u electrum-personal-server electrum-personal-server 'gpg --keyserver hkp://jirk5u4osbsr34t5.onion \
   --recv-keys 0A8B038F5E10CC2789BFCFFFEF734EA677F31129'
 
@@ -367,8 +386,8 @@ wallet=electrum-personal-server' >> ~/.bitcoin/bitcoin.conf"
   verify_electrum_personal_server=$(qvm-run --no-gui -p -q -u electrum-personal-server electrum-personal-server 'gpg --verify \
   ~/eps-v0.1.6.tar.gz.asc ~/eps-v0.1.6.tar.gz | grep -c BAD')
   while [[ "${verify_electrum_personal_server}" -ne "0" ]]; do
-    printf "%s\n" "Electrum Personal Server source code failed validation!
-Removing, downloading, and verifying again."
+    printf '%s\n' 'Electrum Personal Server source code failed validation!
+Removing, downloading, and verifying again.'
     qvm-run --no-gui -q -u electrum-personal-server electrum-personal-server 'rm ~/eps-v0.1.6.tar.gz.asc ~/eps-v0.1.6.tar.gz'
     qvm-run --no-gui -p -q -u electrum-personal-server electrum-personal-server 'curl -LO \
   "https://github.com/chris-belcher/electrum-personal-server/archive/eps-v0.1.6.tar.gz" -O \
@@ -381,16 +400,19 @@ Removing, downloading, and verifying again."
   qvm-run --no-gui -q -u electrum-personal-server electrum-personal-server 'tar -C ~ -xf ~/eps-v0.1.6.tar.gz'
 
   ## Create python virtual environment.
-  printf '- Creating python virtual environment on AppVM: electrum-personal-server...'
+  printf '%s\n' '- Creating python virtual environment on AppVM: electrum-personal-server...'
+  sleep 1s
   qvm-run --no-gui -p -q -u electrum-personal-server electrum-personal-server 'virtualenv -p python3 ~/epsvenv'
 
   ## Install `electrum-personal-server` to virtual environment.
-  printf '- Installing electrum-personal-server to virtual environment...'
+  printf '%s\n' '- Installing electrum-personal-server to virtual environment...'
+  sleep 1s
   qvm-run --no-gui -q -u electrum-personal-server electrum-personal-server 'cd ~/electrum-personal-server-eps-v0.1.6/; \
   ~/epsvenv/bin/python setup.py install'
 
   ## Configure `electrum-personal-server`.
-  printf '- Configuring electrum-personal-server...'
+  printf '%s\n' '- Configuring electrum-personal-server...'
+  sleep 1s
   qvm-run --no-gui -q -u electrum-personal-server electrum-personal-server 'mkdir -m 0700 ~/.eps; mkdir -m 0700 ~/.eps/certs'
   qvm-run --no-gui -q -u electrum-personal-server electrum-personal-server "printf '%s\n' '## Electrum Personal Server configuration file
 
@@ -448,15 +470,15 @@ keyfile = /home/electrum-personal-server/.eps/certs/server.key' > ~/.eps/config.
   qvm-run --no-gui -q -u root bitcoind "printf '%s\n' 'EXTERNAL_OPEN_PORTS+=\" 50002 \"' >> /rw/config/whonix_firewall.d/50_user.conf"
   qvm-run --no-gui -q -u root bitcoind 'systemctl restart whonix-firewall.service'
 
+  ## Add a tag.
+  qvm-tags electrum-personal-server add created_by_qvm-bitcoin
+
   ## Set up the `electrum-personal-server` onion service on the 'sys-electrum-personal-server' VM.
   electrum_personal_server_ip=$(qvm-prefs electrum-personal-server ip)
   qvm-run --no-gui -q -u root sys-electrum-personal-server "printf '%s\n' '
 HiddenServiceDir /var/lib/tor/electrum-personal-server/
 HiddenServicePort 50002 "${electrum_personal_server_ip}":50002' >> /rw/usrlocal/etc/torrc.d/50_user.conf"
   qvm-run --no-gui -q -u root sys-electrum-personal-server 'systemctl reload tor.service'
-
-  ## Add a tag.
-  qvm-tags electrum-personal-server add created_by_qvm-bitcoin
 fi
 
 }
