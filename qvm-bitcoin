@@ -1,7 +1,9 @@
 #!/bin/bash
 
-## Menu driven Qubes dom0 tool for install and setup of isolated Bitcoin tools using Whonix.
-## Automated version of the guides found here: https://github.com/qubenix/qubes-whonix-bitcoin.
+## qvm-bitcoin: Qubes dom0 tool for install and setup of isolated Bitcoin tools using Whonix.
+## An attempt at automating these guides: https://github.com/qubenix/qubes-whonix-bitcoin.
+
+set -e
 
 createvm_bitcoind () {
 ## Check for existence of 'whonix-ws-14-bitcoin' VM.
@@ -51,7 +53,7 @@ if [[ ! $(qvm-ls whonix-ws-14-bitcoin 2>/dev/null) ]]; then
   done
 
   ## Clone the  default Whonix workstation VM.
-  printf '%s\n' '- Cloning "${default_workstation_template}"...'
+  printf '%s\n' "- Cloning "${default_workstation_template}"..."
   sleep 1s
   qvm-clone "${default_workstation_template}" whonix-ws-14-bitcoin
 
@@ -425,12 +427,12 @@ Removing, downloading, and verifying again.'
 ## Multiple master public keys maybe added by simply adding another line.
 # my_second_wallet = xpubanotherkey
 
-## Multisig wallets use format `required-signatures [list of master pub keys]`.
+## Multisig wallets use format \`required-signatures [list of master pub keys]\`.
 # multisig_wallet = 2 xpub661MyMwAqRbcFseXCwRdRVkhVuzEiskg4QUp5XpUdNf2uGXvQmnD4zcofZ1MN6Fo8PjqQ5cemJQ39f7RTwDVVputHMFjPUn8VRp2pJQMgEF xpub661MyMwAqRbcFseXCwRdRVkhVuzEiskg4QUp5XpUdNf2uGXvQmnD4zcofZ1MN6Fo8PjqQ5cemJQ39f7RTwDVVputHMFjPUn8VRp2pJQMgEF
 
 [watch-only-addresses]
 ## Add addresses to this section, space separated list.
-## Multiple `addr =` entries allowed.
+## Multiple \`addr =\` entries allowed.
 # addr = 1DuqpoeTB9zLvVCXQG53VbMxvMkijk494n
 
 [bitcoin-rpc]
@@ -482,3 +484,40 @@ HiddenServicePort 50002 "${electrum_personal_server_ip}":50002' >> /rw/usrlocal/
 fi
 
 }
+
+print_help () {
+printf "%s\n" "Usage: "${0}" [options]
+
+Install and setup of isolated Bitcoin tools using Whonix.
+An attempt at automating these guides: https://github.com/qubenix/qubes-whonix-bitcoin.
+
+Options:
+
+--bitcoind, -b                   = create bitcoind VM
+--electrum-personal-server, -eps = create electrum-personal-server VM, and its dependent VMs
+--help, -h                       = help menu"
+}
+
+if [[ "${#}" -gt "0" ]]; then
+  case "${1}" in
+    --bitcoind|-b)
+    createvm_bitcoind
+    exit 0
+    ;;
+    --electrum-personal-server|-eps)
+    createvm_electrum-personal-server
+    exit 0
+    ;;
+    --help|-h)
+    print_help
+    exit 0
+    ;;
+    *)
+    print_help    
+    exit 1
+    ;;
+  esac
+else
+  print_help
+  exit 0
+fi
