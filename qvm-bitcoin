@@ -7,8 +7,8 @@ set -e
 
 createvm_bitcoind () {
 ## Check for existence of 'whonix-ws-14-bitcoin' VM.
-if [[ $(qvm-ls whonix-ws-14-bitcoin 2>/dev/null) && ! $(qvm-tags whonix-ws-14-bitcoin | grep "created_by_qvm-bitcoin") ]]; then
-  printf "Cannot continue with an existing VM named whonix-ws-14-bitcoin.\n"
+if [[ $(qvm-ls --no-spinner whonix-ws-14-bitcoin 2>/dev/null) && ! $(qvm-tags whonix-ws-14-bitcoin | grep "created_by_qvm-bitcoin") ]]; then
+  printf "Cannot continue with an existing VM named 'whonix-ws-14-bitcoin'.\n"
   read -p "Remove it and continue? (y/n) " remove_whonix_ws_14_bitcoin
   if [[ "${remove_whonix_ws_14_bitcoin}" = [Yy] ]]; then
     qvm-remove whonix-ws-14-bitcoin
@@ -19,8 +19,8 @@ if [[ $(qvm-ls whonix-ws-14-bitcoin 2>/dev/null) && ! $(qvm-tags whonix-ws-14-bi
 fi
 
 ## Check for existence of 'sys-bitcoin' VM.
-if [[ $(qvm-ls sys-bitcoin 2>/dev/null) && ! $(qvm-tags sys-bitcoin | grep "created_by_qvm-bitcoin") ]]; then
-  printf "Cannot continue with an existing VM named sys-bitcoin.\n"
+if [[ $(qvm-ls --no-spinner sys-bitcoin 2>/dev/null) && ! $(qvm-tags sys-bitcoin | grep "created_by_qvm-bitcoin") ]]; then
+  printf "Cannot continue with an existing VM named 'sys-bitcoin'.\n"
   read -p "Remove it and continue? (y/n) " remove_sys_bitcoin
   if [[ "${remove_sys_bitcoin}" = [Yy] ]]; then
     qvm-remove sys-bitcoin
@@ -31,8 +31,8 @@ if [[ $(qvm-ls sys-bitcoin 2>/dev/null) && ! $(qvm-tags sys-bitcoin | grep "crea
 fi
 
 ## Check for existence of 'bitcoind' VM.
-if [[ $(qvm-ls bitcoind 2>/dev/null) && ! $(qvm-tags bitcoind | grep "created_by_qvm-bitcoin") ]]; then
-  printf "Cannot continue with an existing VM named bitcoind.\n"
+if [[ $(qvm-ls --no-spinner bitcoind 2>/dev/null) && ! $(qvm-tags bitcoind | grep "created_by_qvm-bitcoin") ]]; then
+  printf "Cannot continue with an existing VM named 'bitcoind'.\n"
   read -p "Remove it and continue? (y/n) " remove_bitcoind
   if [[ "${remove_bitcoin}" = [Yy] ]]; then
     qvm-remove bitcoind
@@ -44,10 +44,10 @@ fi
 
 ## Clone and setup TemplateVM: 'whonix-ws-14-bitcoin' from the default Whonix
 ## workstation TemplateVM, if it doesn't already exist.
-if [[ ! $(qvm-ls whonix-ws-14-bitcoin 2>/dev/null) ]]; then
+if [[ ! $(qvm-ls --no-spinner whonix-ws-14-bitcoin 2>/dev/null) ]]; then
   ## Get the name of a Whonix workstation TemplateVM.
   default_workstation_template="whonix-ws-14"
-  while [[ ! $(qvm-ls "${default_workstation_template}" 2>/dev/null) ]]; do
+  while [[ ! $(qvm-ls --no-spinner "${default_workstation_template}" 2>/dev/null) ]]; do
     printf "The default Whonix workstation TemplateVM, "${default_workstation_template}", does not exist.\n"
     read -p "What is the name of your Whonix workstation TemplateVM? " default_workstation_template
   done
@@ -58,10 +58,10 @@ if [[ ! $(qvm-ls whonix-ws-14-bitcoin 2>/dev/null) ]]; then
   qvm-clone "${default_workstation_template}" whonix-ws-14-bitcoin
 
   ## Make sure the TemplateVM has networking.
-  if [[ $(qvm-ls -O netvm --raw-data whonix-ws-14-bitcoin) = "-" ]]; then
+  if [[ $(qvm-ls --no-spinner -O netvm --raw-data whonix-ws-14-bitcoin) = "-" ]]; then
     printf "The TemplateVM, whonix-ws-14-bitcoin, has no NetVM.\n"
     read -p "What is the name of your Whonix update VM? " template_update_vm
-    while [[ ! $(qvm-ls "${template_update_vm}" 2>/dev/null) || $(qvm-ls -O netvm --raw-data "${template_update_vm}") = "-" ]]; do
+    while [[ ! $(qvm-ls --no-spinner "${template_update_vm}" 2>/dev/null) || $(qvm-ls --no-spinner -O netvm --raw-data "${template_update_vm}") = "-" ]]; do
       printf "The Whonix update VM, "${template_update_vm}", does not exist or has no NetVM.\n"
       read -p "What is the name of the VM used to update your Whonix TemplateVMs? " template_update_vm
     done
@@ -117,16 +117,16 @@ WantedBy=multi-user.target' > /lib/systemd/system/bitcoind.service"
 fi
 
 ## Create 'sys-bitcoin' gateway VM, if it doesn't already exist.
-if [[ ! $(qvm-ls sys-bitcoin 2>/dev/null) ]]; then
+if [[ ! $(qvm-ls --no-spinner sys-bitcoin 2>/dev/null) ]]; then
 
   ## Get names of NetVM and TemplateVM of the gateway.
   gateway_netvm="sys-firewall"
-  while [[ ! $(qvm-ls "${gateway_netvm}" 2>/dev/null) ]]; do
+  while [[ ! $(qvm-ls --no-spinner "${gateway_netvm}" 2>/dev/null) ]]; do
     printf "The NetVM, "${gateway_netvm}", does not exist.\n"
     read -p "What is the name of the NetVM that your gateway should use? " gateway_netvm
   done
   gateway_template="whonix-gw-14"
-  while [[ ! $(qvm-ls "${gateway_template}" 2>/dev/null) ]]; do
+  while [[ ! $(qvm-ls --no-spinner "${gateway_template}" 2>/dev/null) ]]; do
     printf "The TemplateVM, "${gateway_template}", does not exist.\n"
     read -p "What is the name of your Whonix gateway TemplateVM? " gateway_template
   done
@@ -148,7 +148,7 @@ if [[ ! $(qvm-ls sys-bitcoin 2>/dev/null) ]]; then
 fi
 
 ## Create 'bitcoind' VM, if it doesn't already exist.
-if [[ ! $(qvm-ls sys-bitcoin 2>/dev/null) ]]; then
+if [[ ! $(qvm-ls --no-spinner sys-bitcoin 2>/dev/null) ]]; then
   printf '%s\n' '- Creating AppVM: bitcoind...'
   sleep 1s
   qvm-create --label red --prop netvm='sys-bitcoin' --template whonix-ws-14-bitcoin bitcoind
@@ -184,7 +184,8 @@ if [[ ! $(qvm-ls sys-bitcoin 2>/dev/null) ]]; then
   ## Verify downloaded source code.
   verify_bitcoin=$(qvm-run --no-gui -p -q -u bitcoin bitcoind 'cd ~/bitcoin; git verify-commit HEAD 2>&1 | grep -c BAD')
   while [[ "${verify_bitcoin}" -ne "0" ]]; do
-    printf "\nBitcoin source code failed validation!\nRemoving, downloading, and verifying again.\n"
+    printf "%s\n" "Bitcoin source code failed verification!
+Removing, downloading, and verifying again."
     qvm-run --no-gui -q -u bitcoin bitcoind 'rm -rf ~/bitcoin'
     qvm-run --no-gui -p -u bitcoin bitcoind 'git clone --branch 0.17 --progress https://github.com/bitcoin/bitcoin ~/bitcoin'
     verify_bitcoin=$(qvm-run --no-gui -p -q -u bitcoin bitcoind 'cd ~/bitcoin; git verify-commit HEAD 2>&1 | grep -c BAD')
@@ -238,16 +239,40 @@ txindex=1' > ~/.bitcoin/bitcoin.conf"
   ## Add a tag.
   qvm-tags bitcoind add created_by_qvm-bitcoin
 fi
-
 }
 
 createvm_electrum-personal-server () {
+## Check for existence of 'sys-electrum-personal-server' VM.
+if [[ $(qvm-ls --no-spinner sys-electrum-personal-server 2>/dev/null) && ! $(qvm-tags sys-electrum-personal-server | grep "created_by_qvm-bitcoin") ]]; then
+  printf "Cannot continue with an existing VM named 'sys-electrum-personal-server'.\n"
+  read -p "Remove it and continue? (y/n) " remove_sys_electrum_personal_server
+  if [[ "${remove_sys_electrum_personal_server}" = [Yy] ]]; then
+    qvm-remove sys-electrum-personal-server
+  else
+    printf "Exiting.\n"
+    exit 1
+  fi
+fi
+
+## Check for existence of 'electrum-personal-server' VM.
+if [[ $(qvm-ls --no-spinner electrum-personal-server 2>/dev/null) && ! $(qvm-tags electrum-personal-server | grep "created_by_qvm-bitcoin") ]]; then
+  printf "Cannot continue with an existing VM named 'electrum-personal-server'.\n"
+  read -p "Remove it and continue? (y/n) " remove_electrum_personal_server
+  if [[ "${remove_electrum_personal_server}" = [Yy] ]]; then
+    qvm-remove electrum-personal-server
+  else
+    printf "Exiting.\n"
+    exit 1
+  fi
+fi
+
 ## Check for existence of the prerequisite VM: 'bitcoind'.
-if [[ ! $(qvm-ls bitcoind 2>/dev/null) ]]; then
+## Create it if it doesn't exist.
+if [[ ! $(qvm-ls --no-spinner bitcoind 2>/dev/null) ]]; then
   createvm_bitcoind
 else
   if [[ ! $(qvm-tags bitcoind | grep "created_by_qvm-bitcoin") ]]; then
-    printf "Cannot continue with an existing VM named bitcoind.\n"
+    printf "Cannot continue with an existing VM named 'bitcoind'.\n"
     read -p "Remove it and continue? (y/n) " remove_bitcoind
     if [[ "${remove_bitcoind}" = [Yy] ]]; then
       qvm-remove bitcoind
@@ -259,40 +284,16 @@ else
   fi
 fi
 
-## Check for existence of 'sys-electrum-personal-server' VM.
-if [[ $(qvm-ls sys-electrum-personal-server 2>/dev/null) && ! $(qvm-tags sys-electrum-personal-server | grep "created_by_qvm-bitcoin") ]]; then
-  printf "Cannot continue with an existing VM named sys-electrum-personal-server\n"
-  read -p "Remove it and continue? (y/n) " remove_sys_electrum_personal_server
-  if [[ "${remove_sys_electrum_personal_server}" = [Yy] ]]; then
-    qvm-remove sys-electrum-personal-server
-  else
-    printf "Exiting.\n"
-    exit 1
-  fi
-fi
-
-## Check for existence of 'electrum-personal-server' VM.
-if [[ $(qvm-ls electrum-personal-server 2>/dev/null) && ! $(qvm-tags electrum-personal-server | grep "created_by_qvm-bitcoin") ]]; then
-  printf "Cannot continue with an existing VM named electrum-personal-server\n"
-  read -p "Remove it and continue? (y/n) " remove_electrum_personal_server
-  if [[ "${remove_electrum_personal_server}" = [Yy] ]]; then
-    qvm-remove electrum-personal-server
-  else
-    printf "Exiting.\n"
-    exit 1
-  fi
-fi
-
 ## Create 'sys-electrum-personal-server' gateway VM, if it doesn't already exist.
-if [[ ! $(qvm-ls sys-electrum-personal-server 2>/dev/null) ]]; then
+if [[ ! $(qvm-ls --no-spinner sys-electrum-personal-server 2>/dev/null) ]]; then
   ## Get names of NetVM and TemplateVM of the gateway.
   gateway_netvm="sys-firewall"
-  while [[ ! $(qvm-ls "${gateway_netvm}" 2>/dev/null) ]]; do
+  while [[ ! $(qvm-ls --no-spinner "${gateway_netvm}" 2>/dev/null) ]]; do
     printf "The NetVM, "${gateway_netvm}", does not exist.\n"
     read -p "What is the name of the NetVM that your gateway should use? " gateway_netvm
   done
   gateway_template="whonix-gw-14"
-  while [[ ! $(qvm-ls "${gateway_template}" 2>/dev/null) ]]; do
+  while [[ ! $(qvm-ls --no-spinner "${gateway_template}" 2>/dev/null) ]]; do
     printf "The TemplateVM, "${gateway_template}", does not exist.\n"
     read -p "What is the name of your Whonix gateway TemplateVM? " gateway_template
   done
@@ -308,7 +309,7 @@ if [[ ! $(qvm-ls sys-electrum-personal-server 2>/dev/null) ]]; then
 fi
 
 ## Create 'electrum-personal-server' VM, if it doesn't already exist.
-if [[ ! $(qvm-ls electrum-personal-server 2>/dev/null) ]]; then
+if [[ ! $(qvm-ls --no-spinner electrum-personal-server 2>/dev/null) ]]; then
   printf '%s\n' '- Setting up TemplateVM: whonix-ws-14-bitcoin...'
   sleep 1s
   ## Update and install dependencies to 'whonix-ws-14-bitcoin' VM.
@@ -388,8 +389,8 @@ wallet=electrum-personal-server' >> ~/.bitcoin/bitcoin.conf"
   verify_electrum_personal_server=$(qvm-run --no-gui -p -q -u electrum-personal-server electrum-personal-server 'gpg --verify \
   ~/eps-v0.1.6.tar.gz.asc ~/eps-v0.1.6.tar.gz | grep -c BAD')
   while [[ "${verify_electrum_personal_server}" -ne "0" ]]; do
-    printf '%s\n' 'Electrum Personal Server source code failed validation!
-Removing, downloading, and verifying again.'
+    printf "%s\n" "Electrum Personal Server source code failed verification!
+Removing, downloading, and verifying again."
     qvm-run --no-gui -q -u electrum-personal-server electrum-personal-server 'rm ~/eps-v0.1.6.tar.gz.asc ~/eps-v0.1.6.tar.gz'
     qvm-run --no-gui -p -q -u electrum-personal-server electrum-personal-server 'curl -LO \
   "https://github.com/chris-belcher/electrum-personal-server/archive/eps-v0.1.6.tar.gz" -O \
@@ -472,6 +473,9 @@ keyfile = /home/electrum-personal-server/.eps/certs/server.key' > ~/.eps/config.
   qvm-run --no-gui -q -u root bitcoind "printf '%s\n' 'EXTERNAL_OPEN_PORTS+=\" 50002 \"' >> /rw/config/whonix_firewall.d/50_user.conf"
   qvm-run --no-gui -q -u root bitcoind 'systemctl restart whonix-firewall.service'
 
+  ## Allow comms from 'electrum-personal-server' VM to 'bitcoind' VM.
+  sudo printf "%s\n" "electrum-personal-server bitcoind allow" >> /etc/qubes-rpc/policy/qubes.bitcoind
+
   ## Add a tag.
   qvm-tags electrum-personal-server add created_by_qvm-bitcoin
 
@@ -482,7 +486,132 @@ HiddenServiceDir /var/lib/tor/electrum-personal-server/
 HiddenServicePort 50002 "${electrum_personal_server_ip}":50002' >> /rw/usrlocal/etc/torrc.d/50_user.conf"
   qvm-run --no-gui -q -u root sys-electrum-personal-server 'systemctl reload tor.service'
 fi
+}
 
+createvm_electrum () {
+## Check for existence of 'electrum' VM.
+if [[ $(qvm-ls --no-spinner electrum 2>/dev/null) && ! $(qvm-tags electrum | grep "created_by_qvm-bitcoin") ]]; then
+  printf "Cannot continue with an existing VM named 'electrum'.\n"
+  read -p "Remove it and continue? (y/n) " remove_electrum
+  if [[ "${remove_electrum}" = [Yy] ]]; then
+    qvm-remove electrum
+  else
+    printf "Exiting.\n"
+    exit 1
+  fi
+fi
+
+## Check for existence of the prerequisite VM: 'electrum-personal-server'.
+## Create it if it doesn't exist.
+if [[ ! $(qvm-ls --no-spinner electrum-personal-server 2>/dev/null) ]]; then
+  createvm_electrum-personal-server
+else
+  if [[ ! $(qvm-tags electrum-personal-server | grep "created_by_qvm-bitcoin") ]]; then
+    printf "Cannot continue with an existing VM named 'electrum-personal-server'.\n"
+    read -p "Remove it and continue? (y/n) " remove_electrum_personal_server
+    if [[ "${remove_electrum_personal_server}" = [Yy] ]]; then
+      qvm-remove electrum-personal-server
+      createvm_electrum-personal-server
+    else
+      printf "Exiting.\n"
+      exit 1
+    fi
+  fi
+fi
+
+## Create the 'electrum' VM, if it doesn't already exist.
+if [[ ! $(qvm-ls --no-spinner electrum 2>/dev/null) ]]; then
+
+  ## Get the name of the Whonix workstation TemplateVM.
+  default_workstation_template="whonix-ws-14"
+  while [[ ! $(qvm-ls --no-spinner "${default_workstation_template}" 2>/dev/null) ]]; do
+    printf "The default Whonix workstation TemplateVM, "${default_workstation_template}", does not exist.\n"
+    read -p "What is the name of your Whonix workstation TemplateVM? " default_workstation_template
+  done
+
+  ## Create the 'electrum' VM.
+  qvm-create --label black --prop maxmem='800' --prop netvm='' --prop vcpus='1' --template \
+  "${default_workstation_template}" electrum
+
+  ## Allow comms from 'electrum' VM to 'electrum-personal-server' VM.
+  sudo printf "%s\n" "electrum electrum-personal-server allow" >> /etc/qubes-rpc/policy/qubes.electrum-personal-server
+
+  ## Set the download VM to a Whonix based disposable VM or the 'bitcoind' VM.
+  if [[ $(qvm-ls --no-spinner -O name | grep "whonix-ws-14-dvm" 2>/dev/null) ]]; then
+    electrum_download_vm="--dispvm whonix-ws-14-dvm"
+  else
+    electrum_download_vm="bitcoind"
+  fi
+
+  ## Download and verify current `electrum` AppImage on the download VM.
+  printf '%s\n' '- Downloading and verifying Electrum...
+TO MOVE THE FILE FROM THE DOWNLOAD VM:
+SELECT "electrum" FROM THE POP UP IN A FEW MINUTES!'
+
+  qvm-run --no-gui -p -q -u user $(printf "%s" "${electrum_download_vm}") \
+  '## Get latest `electrum` version number on the download VM.
+  latest_electrum_version_number=`curl --retry 5 -s "https://electrum.org/version" | tr -d "\"\," \
+  | cut -d":" -f 2 | sed "s/ signatures//"`
+
+  ## Test that the received version number matches a regex, or set it to last known good version.
+  if [[ ! "${latest_electrum_version_number}" =~ ([0-9].[0-9].[0-9]) ]]; then
+    latest_electrum_version_number="3.3.4"
+  fi
+
+  ## Download latest version of `electrum` and detached signature.
+  curl --retry 5 -O \
+  "https://download.electrum.org/"${latest_electrum_version_number}"/electrum-"${latest_electrum_version_number}"-x86_64.AppImage" -O \
+  "https://download.electrum.org/"${latest_electrum_version_number}"/electrum-"${latest_electrum_version_number}"-x86_64.AppImage.asc"
+
+  ## Get signing key.
+  ## Verify the key fingerprint of Thomas Voegtlin: https://electrum.org/#about.
+  gpg --keyserver hkp://jirk5u4osbsr34t5.onion --recv-keys 6694D8DE7BE8EE5631BED9502BD5824B7F9470E6
+  while [[ "${?}" -ne "0" ]]; do
+  gpg --keyserver hkp://jirk5u4osbsr34t5.onion --recv-keys 6694D8DE7BE8EE5631BED9502BD5824B7F9470E6
+  done
+
+  ## Verify `electrum`. Remove and re-download if verification fails.
+  verify_electrum=`gpg --verify \
+  ~/electrum-"${latest_electrum_version_number}"-x86_64.AppImage.asc ~/electrum-"${latest_electrum_version_number}"-x86_64.AppImage \
+  | grep -c "BAD"`
+  while [[ "${verify_electrum}" -ne "0" ]]; do
+    printf "%s\n" "Electrum source code failed verification!
+Removing, downloading, and verifying again."
+    rm ~/electrum-"${latest_electrum_version_number}"-x86_64.AppImage.asc ~/electrum-"${latest_electrum_version_number}"-x86_64.AppImage
+    curl --retry 5 -O \
+    "https://download.electrum.org/"${latest_electrum_version_number}"/electrum-"${latest_electrum_version_number}"-x86_64.AppImage" -O \
+    "https://download.electrum.org/"${latest_electrum_version_number}"/electrum-"${latest_electrum_version_number}"-x86_64.AppImage.asc"
+    verify_electrum=`gpg --verify \
+    ~/electrum-"${latest_electrum_version_number}"-x86_64.AppImage.asc ~/electrum-"${latest_electrum_version_number}"-x86_64.AppImage \
+    | grep -c "BAD"`
+  done
+
+  ## Move the verified `electrum` AppImage to the 'electrum' VM.
+  qvm-move ~/electrum-"${latest_electrum_version_number}"-x86_64.AppImage'
+
+  ## Set up `socat` in `/rw/config/rc.local` on the 'electrum' VM.
+  qvm-run --no-gui -q -u root electrum "printf '%s\n' \
+  'socat TCP-LISTEN:50002,fork,bind=127.0.0.1 EXEC:\"qrexec-client-vm electrum-personal-server qubes.electrum-personal-server \" &' \
+  >> /rw/config/rc.local"
+
+  ## Configure `electrum`: make datadir & config, fix permissions.
+  qvm-run --no-gui -q -u user electrum 'mkdir -m 0700 ~/.electrum'
+  qvm-run --no-gui -q -u user electrum "printf '%s\n' \
+'{
+    \"auto_connect\": true,
+    \"check_updates\": false,
+    \"oneserver\": true,
+    \"server\": \"127.0.0.1:50002:s\",
+}' > ~/.electrum/config"
+  qvm-run --no-gui -q -u user electrum 'chmod 0600 ~/.electrum/config'
+
+  ## Make execution easier.
+  qvm-run --no-gui -q -u user electrum 'mkdir -m 0700 ~/bin'
+  qvm-run --no-gui -q -u user electrum 'cp ~/QubesIncoming/disp*/electrum-*-x86_64.AppImage ~/bin/electrum'
+
+  ## Add a tag.
+  qvm-tags electrum add created_by_qvm-bitcoin
+fi
 }
 
 print_help () {
@@ -493,18 +622,23 @@ An attempt at automating these guides: https://github.com/qubenix/qubes-whonix-b
 
 Options:
 
---bitcoind, -b                   = create bitcoind VM
---electrum-personal-server, -eps = create electrum-personal-server VM, and its dependent VMs
---help, -h                       = help menu"
+--create-bitcoind, -cb                   = create bitcoind VM
+--create-electrum, -ce                   = create electrum VM, and its dependent VMs
+--create-electrum-personal-server, -ceps = create electrum-personal-server VM, and its dependent VMs
+--help, -h                               = help menu"
 }
 
 if [[ "${#}" -gt "0" ]]; then
   case "${1}" in
-    --bitcoind|-b)
+    --create-bitcoind|-cb)
     createvm_bitcoind
     exit 0
     ;;
-    --electrum-personal-server|-eps)
+    --create-electrum|-ce)
+    createvm_electrum
+    exit 0
+    ;;
+    --create-electrum-personal-server|-ceps)
     createvm_electrum-personal-server
     exit 0
     ;;
