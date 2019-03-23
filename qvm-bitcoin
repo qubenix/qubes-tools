@@ -172,11 +172,17 @@ if [[ ! $(qvm-ls --no-spinner sys-bitcoin 2>/dev/null) ]]; then
 
   ## Get signing keys. Verify fingerprints:
   ## https://github.com/bitcoin/bitcoin/blob/0.17/contrib/verify-commits/trusted-keys.
+  ## Fallback to sks-keyservers.net onion address if the default keyserver fails.
   printf '%s\n' '- Getting the bitcoin signing keys...'
   sleep 1s
-  qvm-run --no-gui -p -u bitcoin bitcoind 'gpg --keyserver hkp://jirk5u4osbsr34t5.onion --recv-keys \
+  qvm-run --no-gui -p -u bitcoin bitcoind 'gpg --recv-keys \
   71A3B16735405025D447E8F274810B012346C9A6 133EAC179436F14A5CF1B794860FEB804E669320 \
-  32EE5C4C3FA15CCADB46ABE529D4BCB6416F53EC B8B3F1C0E58C15DB6A81D30C3648A882F4316B9B'
+  32EE5C4C3FA15CCADB46ABE529D4BCB6416F53EC B8B3F1C0E58C15DB6A81D30C3648A882F4316B9B
+  while [[ "${?}" -ne "0" ]]; do
+    gpg --keyserver hkp://jirk5u4osbsr34t5.onion --recv-keys \
+    71A3B16735405025D447E8F274810B012346C9A6 133EAC179436F14A5CF1B794860FEB804E669320 \
+    32EE5C4C3FA15CCADB46ABE529D4BCB6416F53EC B8B3F1C0E58C15DB6A81D30C3648A882F4316B9B
+  done'
 
   printf '%s\n' '- Verifying the bitcoin source code...'
   sleep 1s
@@ -380,10 +386,14 @@ wallet=electrum-personal-server' >> ~/.bitcoin/bitcoin.conf"
 
   ## Get signing keys on 'electrum-personal-server' VM. Verify fingerprint:
   ## https://github.com/chris-belcher/electrum-personal-server/releases.
+  ## Fallback to sks-keyservers.net onion address if the default keyserver fails.
   printf '%s\n' '- Getting the electrum-personal-server signing key...'
   sleep 1s
-  qvm-run --no-gui -p -u electrum-personal-server electrum-personal-server 'gpg --keyserver hkp://jirk5u4osbsr34t5.onion \
-  --recv-keys 0A8B038F5E10CC2789BFCFFFEF734EA677F31129'
+  qvm-run --no-gui -p -u electrum-personal-server electrum-personal-server 'gpg --recv-keys 0A8B038F5E10CC2789BFCFFFEF734EA677F31129
+  while [[ "${?}" -ne "0" ]]; do
+    gpg --keyserver hkp://jirk5u4osbsr34t5.onion \
+    --recv-keys 0A8B038F5E10CC2789BFCFFFEF734EA677F31129
+  done'
 
   ## Verify downloaded `electrum-personal-server` source code.
   verify_electrum_personal_server=$(qvm-run --no-gui -p -q -u electrum-personal-server electrum-personal-server 'gpg --verify \
@@ -521,7 +531,6 @@ fi
 
 ## Create the 'electrum' VM, if it doesn't already exist.
 if [[ ! $(qvm-ls --no-spinner electrum 2>/dev/null) ]]; then
-
   ## Get the name of the Whonix workstation TemplateVM.
   default_workstation_template="whonix-ws-14"
   while [[ ! $(qvm-ls --no-spinner "${default_workstation_template}" 2>/dev/null) ]]; do
@@ -537,7 +546,7 @@ if [[ ! $(qvm-ls --no-spinner electrum 2>/dev/null) ]]; then
   sudo printf "%s\n" "electrum electrum-personal-server allow" >> /etc/qubes-rpc/policy/qubes.electrum-personal-server
 
   ## Set the download VM to a Whonix based disposable VM or the 'bitcoind' VM.
-  if [[ $(qvm-ls --no-spinner -O name | grep "whonix-ws-14-dvm" 2>/dev/null) ]]; then
+  if [[ $(qvm-ls --no-spinner -O name | grep "whonix-ws-14-dvm") ]]; then
     electrum_download_vm="--dispvm whonix-ws-14-dvm"
   else
     electrum_download_vm="bitcoind"
@@ -565,9 +574,10 @@ SELECT "electrum" FROM THE POP UP IN A FEW MINUTES!'
 
   ## Get signing key.
   ## Verify the key fingerprint of Thomas Voegtlin: https://electrum.org/#about.
-  gpg --keyserver hkp://jirk5u4osbsr34t5.onion --recv-keys 6694D8DE7BE8EE5631BED9502BD5824B7F9470E6
+  ## Fallback to sks-keyservers.net onion address if the default keyserver fails.
+  gpg --recv-keys 6694D8DE7BE8EE5631BED9502BD5824B7F9470E6
   while [[ "${?}" -ne "0" ]]; do
-  gpg --keyserver hkp://jirk5u4osbsr34t5.onion --recv-keys 6694D8DE7BE8EE5631BED9502BD5824B7F9470E6
+    gpg --keyserver hkp://jirk5u4osbsr34t5.onion --recv-keys 6694D8DE7BE8EE5631BED9502BD5824B7F9470E6
   done
 
   ## Verify `electrum`. Remove and re-download if verification fails.
@@ -618,13 +628,15 @@ print_help () {
 printf "%s\n" "Usage: "${0}" [options]
 
 Install and setup of isolated Bitcoin tools using Whonix.
-An attempt at automating these guides: https://github.com/qubenix/qubes-whonix-bitcoin.
+Automation of these guides: https://github.com/qubenix/qubes-whonix-bitcoin.
 
 Options:
 
---create-bitcoind, -cb                   = create bitcoind VM
---create-electrum, -ce                   = create electrum VM, and its dependent VMs
---create-electrum-personal-server, -ceps = create electrum-personal-server VM, and its dependent VMs
+--create-bitcoind, -cb                   = create bitcoind gateway and workstation VMs
+--create-electrum, -ce                   = create electrum workstation VM,
+                                           and any dependent VMs.
+--create-electrum-personal-server, -ceps = create electrum-personal-server gateway and workstation VMs,
+                                           and any dependent VMs.
 --help, -h                               = help menu"
 }
 
