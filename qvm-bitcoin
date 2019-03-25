@@ -2,6 +2,8 @@
 
 ## qvm-bitcoin: Qubes dom0 tool for install and setup of isolated Bitcoin tools using Whonix.
 ## An attempt at automating these guides: https://github.com/qubenix/qubes-whonix-bitcoin.
+##
+## *NOT TO BE USED BY ANYONE, EVER. ALMOST COMPLETELY UNTESTED CODE AT THIS POINT.*
 
 set -e
 
