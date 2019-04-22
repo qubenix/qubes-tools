@@ -634,12 +634,12 @@ Automation of these guides: https://github.com/qubenix/qubes-whonix-bitcoin.
 
 Options:
 
---create-bitcoind, -cb                   = create bitcoind gateway and workstation VMs
---create-electrum, -ce                   = create electrum workstation VM,
+--create-bitcoind, -cb                   = Create bitcoind gateway and workstation VMs.
+--create-electrum, -ce                   = Create electrum workstation VM,
                                            and any dependent VMs.
---create-electrum-personal-server, -ceps = create electrum-personal-server gateway and workstation VMs,
+--create-electrum-personal-server, -ceps = Create electrum-personal-server gateway and workstation VMs,
                                            and any dependent VMs.
---help, -h                               = help menu"
+--help, -h                               = This help menu."
 }
 
 if [[ "${#}" -gt "0" ]]; then
