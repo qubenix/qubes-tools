@@ -1,8 +1,10 @@
 # Dom0 Tools
+### NEVER RUN ANY UNINSPECTED CODE IN DOM0!
 ## `qubes-update-all`
 - Update all Standalone and Template VMs.
 
 ## `qvm-bitcoin`
+### NOT TO BE USED BY ANYONE, EVER! ALMOST COMPLETELY UNTESTED CODE AT THIS POINT!
 - Deploy the VMs created in the guides found [here](https://github.com/qubenix/qubes-whonix-bitcoin).
 
 ## Git Mirrors
