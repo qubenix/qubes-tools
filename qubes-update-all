@@ -10,6 +10,10 @@ while [[ "${#}" -gt "0" ]]; do
     autoremove="1"
     shift
     ;;
+    --dom0|-d)
+    upgrade_dom0="1"
+    shift
+    ;;
     --help|-h)
     printf "%s\n" "
 Usage: "${0}" [options]
@@ -18,6 +22,7 @@ Options:
 
 --autoclean, -ac  = autoclean
 --autoremove, -ar = autoremove
+--dom0, -d        = upgrade dom0
 --help, -h        = help menu
 "
     exit 0
@@ -34,8 +39,8 @@ updatevm="gateway-update"
 
 ## Log output dir and file.
 ## If left empty a dir and file will be created in current dir.
-logdir=
-logfile=
+logdir="/home/user/update-all-templates-log/"
+logfile="/home/user/update-all-templates-log/update-all-templates.log"
 
 ## Set variables if empty.
 if [[ -z "${updatevm}" ]]; then
@@ -65,10 +70,13 @@ fi
 ## Print enabled options.
 clear
 if [[ "${autoremove}" -eq "1" ]]; then
-  printf "+ AUTOREMOVE ENABLED\n"
+  printf "[+] AUTOREMOVE ENABLED\n"
 fi
 if [[ "${autoclean}" -eq "1" ]]; then
-  printf "+ AUTOCLEAN ENABLED\n"
+  printf "[+] AUTOCLEAN ENABLED\n"
+fi
+if [[ "${upgrade_dom0}" -eq "1" ]]; then
+  printf "[+] UPGRADE DOM0 ENABLED\n"
 fi
 
 ## Start update VM, wait for Tor.
@@ -117,7 +125,7 @@ for vm in $(qvm-ls --fields name,netvm --raw-data --tags debian whonix-updatevm 
   ## Start apt update. Give 10 retries.
   aborted_update="0"
   update_count="0"
-  qvm-run --nogui -p -q -u root "${vm}" 'export DEBIAN_FRONTEND="noninteractive" TERM="vt100"; timeout 10m sudo apt update; printf "Exit code: $?\n"' | tee -a "${logfile}"
+  qvm-run -q --nogui -p -u root "${vm}" 'export DEBIAN_FRONTEND="noninteractive" TERM="vt100"; timeout 10m apt update; printf "Exit code: $?\n"' | tee -a "${logfile}"
   while [[ $(tail -1 "${logfile}" | sed 's|Exit\ code\:\ ||') -ne "0" ]] ; do
     update_count=$((update_count+1))
     printf "\n[!][!] UPDATE FAILED FOR: "${vm}". RETRY ATTEMPT $update_count / 10. [!][!]\n\n" | tee -a "${logfile}"
@@ -133,12 +141,12 @@ for vm in $(qvm-ls --fields name,netvm --raw-data --tags debian whonix-updatevm 
   if [[ "$aborted_update" -eq "0" ]]; then
     aborted_upgrade="0"
     upgrade_count="0"
-    qvm-run --nogui -p -q -u root "${vm}" 'export DEBIAN_FRONTEND="noninteractive" TERM="vt100"; apt dist-upgrade -V -y -q -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"; printf "Exit code: $?\n"' | tee -a "${logfile}"
+    qvm-run --nogui -p -q -u root "${vm}" 'export DEBIAN_FRONTEND="noninteractive" TERM="vt100"; apt dist-upgrade -V -y -q -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -o Dpkg::Progress-Fancy="1"; printf "Exit code: $?\n"' | tee -a "${logfile}"
     while [[ $(tail -1 "${logfile}" | sed 's|Exit\ code\:\ ||') -ne "0" ]]; do
       upgrade_count=$((upgrade_count+1))
       printf "\n[!][!] UPGRADE FAILED FOR VM: "${vm}". RETRY ATTEMPT "${upgrade_count}" / 10. [!][!]\n\n" | tee -a "${logfile}"
       sleep 5
-      qvm-run --nogui -p -q -u root "${vm}" 'export DEBIAN_FRONTEND="noninteractive" TERM="vt100"; apt dist-upgrade -V -y -q -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"; printf "Exit code: $?\n"' | tee -a "${logfile}"
+      qvm-run --nogui -p -q -u root "${vm}" 'export DEBIAN_FRONTEND="noninteractive" TERM="vt100"; apt dist-upgrade -V -y -q -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -o Dpkg::Progress-Fancy="1"; printf "Exit code: $?\n"' | tee -a "${logfile}"
       if [[ "$upgrade_count" -ge "10" ]]; then
         printf "\n[!][!] UPGRADE FOR VM: "${vm}" WAS NOT SUCCESSFUL AFTER 10 RETRY ATTEMPTS. ABORTING. [!][!]\n\n" | tee -a "${logfile}"
         aborted_upgrade="1"
@@ -223,20 +231,22 @@ for vm in $(qvm-ls --fields name,netvm --raw-data --tags fedora | grep "gateway-
 done
 
 # Dom0 upgrade.
-printf "\n[+] Starting upgrade for dom0 at $(date +%x-%T).\n\n" | tee -a "${logfile}"
-dom0update_count="0"
-set -o pipefail
-sudo qubes-dom0-update --clean --enablerepo=qubes-dom0-current-testing -v -y | tee -a "${logfile}"
-while [[ "${?}" -ne "0" && $(tail -5 "${logfile}" | grep -c "Nothing to download") -lt "1" ]]; do
-  sudo qubes-dom0-update --enablerepo=qubes-dom0-current-testing -v -y | tee -a "${logfile}"
-  dom0update_count=$((dom0update_count+1))
-  if [[ "${dom0update_count}" -ge "10" ]]; then
-    printf "\n[!][!] UPGRADE FOR dom0 WAS NOT SUCCESSFUL AFTER 10 ATTEMPTS. ABORTING. [!][!]\n\n" | tee -a "${logfile}"
-    break
-  fi
-done
-set +o pipefail
-printf "\n[-] Finished upgrade for dom0 at $(date +%x-%T).\n\n" | tee -a "${logfile}"
+if [[ "${upgrade_dom0}" -eq "1" ]]; then
+  printf "\n[+] Starting upgrade for dom0 at $(date +%x-%T).\n\n" | tee -a "${logfile}"
+  dom0update_count="0"
+  set -o pipefail
+  sudo qubes-dom0-update --clean --enablerepo=qubes-dom0-current-testing -v -y | tee -a "${logfile}"
+  while [[ "${?}" -ne "0" && $(tail -5 "${logfile}" | grep -c "Nothing to download") -lt "1" ]]; do
+    sudo qubes-dom0-update --enablerepo=qubes-dom0-current-testing -v -y | tee -a "${logfile}"
+    dom0update_count=$((dom0update_count+1))
+    if [[ "${dom0update_count}" -ge "10" ]]; then
+      printf "\n[!][!] UPGRADE FOR dom0 WAS NOT SUCCESSFUL AFTER 10 ATTEMPTS. ABORTING. [!][!]\n\n" | tee -a "${logfile}"
+      break
+    fi
+  done
+  set +o pipefail
+  printf "\n[-] Finished upgrade for dom0 at $(date +%x-%T).\n\n" | tee -a "${logfile}"
+fi
 
 # Shutdown update vms.
 if [[ "${updatevm_was_running}" -eq "0" ]]; then
