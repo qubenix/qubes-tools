@@ -23,9 +23,14 @@ Options:
 --autoclean, -ac  = autoclean
 --autoremove, -ar = autoremove
 --dom0, -d        = upgrade dom0
+--trim, -t        = trim
 --help, -h        = help menu
 "
     exit 0
+    ;;
+    --trim|-t)
+    trim="1"
+    shift
     ;;
     *)
     break
@@ -69,11 +74,16 @@ fi
 
 ## Print enabled options.
 clear
+printf "%s\n\n" "Updating all TemplateVMs and StandaloneVMs.
+Options enabled:"
 if [[ "${autoremove}" -eq "1" ]]; then
   printf "[+] AUTOREMOVE ENABLED\n"
 fi
 if [[ "${autoclean}" -eq "1" ]]; then
   printf "[+] AUTOCLEAN ENABLED\n"
+fi
+if [[ "${trim}" -eq "1" ]]; then
+  printf "[+] TRIM ENABLED\n"
 fi
 if [[ "${upgrade_dom0}" -eq "1" ]]; then
   printf "[+] UPGRADE DOM0 ENABLED\n"
@@ -182,6 +192,10 @@ for vm in $(qvm-ls --fields name,netvm --raw-data --tags debian whonix-updatevm 
       fi
     done
   fi
+  ## Trim vm.
+  if [[ "${trim}" -eq "1" ]]; then
+    qvm-run --nogui -p -q -u root "${vm}" "fstrim -v /"
+  fi
   ## Shutdown vm.
   if [[ "${vm_was_running}" = "0" ]]; then
     qvm-shutdown -q "${vm}"
@@ -219,6 +233,10 @@ for vm in $(qvm-ls --fields name,netvm --raw-data --tags fedora | grep "gateway-
       break
     fi
   done
+  ## Trim vm.
+  if [[ "${trim}" -eq "1" ]]; then
+    qvm-run --nogui -p -q -u root "${vm}" "fstrim -v /"
+  fi
   ## Shutdown vm.
   if [[ "${vm_was_running}" = "0" ]]; then
     qvm-shutdown -q "${vm}"
