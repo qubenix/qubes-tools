@@ -2,6 +2,13 @@
 
 while [[ "${#}" -gt "0" ]]; do
   case "${1}" in
+    --all|-A)
+    autoclean="1"
+    autoremove="1"
+    trim="1"
+    upgrade_dom0="1"
+    shift
+    ;;
     --autoclean|-ac)
     autoclean="1"
     shift
@@ -20,6 +27,7 @@ Usage: "${0}" [options]
 
 Options:
 
+--all, -A         = all options
 --autoclean, -ac  = autoclean
 --autoremove, -ar = autoremove
 --dom0, -d        = upgrade dom0
@@ -74,7 +82,7 @@ fi
 
 ## Print enabled options.
 clear
-printf "%s\n\n" "Updating all TemplateVMs and StandaloneVMs.
+printf "%s\n" "Updating all TemplateVMs and StandaloneVMs.
 Options enabled:"
 if [[ "${autoremove}" -eq "1" ]]; then
   printf "[+] AUTOREMOVE ENABLED\n"
@@ -253,9 +261,9 @@ if [[ "${upgrade_dom0}" -eq "1" ]]; then
   printf "\n[+] Starting upgrade for dom0 at $(date +%x-%T).\n\n" | tee -a "${logfile}"
   dom0update_count="0"
   set -o pipefail
-  sudo qubes-dom0-update --clean --enablerepo=qubes-dom0-current-testing -v -y | tee -a "${logfile}"
+  sudo qubes-dom0-update --clean --enablerepo=qubes-dom0-current-testing --enablerepo=qubes-templates-community --enablerepo=qubes-templates-itl-testing -v -y | tee -a "${logfile}"
   while [[ "${?}" -ne "0" && $(tail -5 "${logfile}" | grep -c "Nothing to download") -lt "1" ]]; do
-    sudo qubes-dom0-update --enablerepo=qubes-dom0-current-testing -v -y | tee -a "${logfile}"
+    sudo qubes-dom0-update --enablerepo=qubes-dom0-current-testing --enablerepo=qubes-templates-community --enablerepo=qubes-templates-itl-testing -v -y | tee -a "${logfile}"
     dom0update_count=$((dom0update_count+1))
     if [[ "${dom0update_count}" -ge "10" ]]; then
       printf "\n[!][!] UPGRADE FOR dom0 WAS NOT SUCCESSFUL AFTER 10 ATTEMPTS. ABORTING. [!][!]\n\n" | tee -a "${logfile}"
@@ -264,6 +272,10 @@ if [[ "${upgrade_dom0}" -eq "1" ]]; then
   done
   set +o pipefail
   printf "\n[-] Finished upgrade for dom0 at $(date +%x-%T).\n\n" | tee -a "${logfile}"
+fi
+## Trim dom0.
+if [[ "${trim}" -eq "1" ]]; then
+  sudo fstrim -v /
 fi
 
 # Shutdown update vms.
